@@ -1,7 +1,3 @@
-export async function GET(request: Request) {
-  return Response.json({ success: true });
-}
+import { handlers } from "@/lib/auth";
 
-export async function POST(request: Request) {
-  return Response.json({ success: true });
-}
+export const { GET, POST } = handlers;
