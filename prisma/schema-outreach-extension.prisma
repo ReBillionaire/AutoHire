@@ -1,0 +1,80 @@
+// Add to existing prisma/schema.prisma
+
+// Outreach & Job Posting Models
+model OutreachPost {
+  id              String    @id @default(cuid())
+  title           String
+  platforms       String    @db.Json  // Array of platform names: "linkedin", "reddit", "indeed", etc.
+  status          OutreachStatus @default(DRAFT)  // DRAFT, SCHEDULED, POSTED, ARCHIVED
+
+  // AI Analysis
+  aiPlatformRecs  String    @db.Json  // Array of platform recommendations with reasoning
+  jobType         String?   // e.g., "backend-engineer", "designer", "product-manager"
+
+  // Scheduling
+  scheduledAt     DateTime?
+  postedAt        DateTime?
+
+  // Stats
+  views           Int       @default(0)
+  clicks          Int       @default(0)
+  applications    Int       @default(0)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  jobPostingId    String
+  jobPosting      JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdById     String
+  createdBy       User      @relation(fields: [createdById], references: [id])
+
+  platformContents PlatformContent[]
+
+  @@index([jobPostingId])
+  @@index([companyId])
+  @@index([status])
+  @@index([postedAt])
+}
+
+model PlatformContent {
+  id              String    @id @default(cuid())
+  platform        String    // "linkedin", "reddit", "indeed", "hackerNews", "dribbble", "behance"
+  content         String    @db.Text
+  characterCount  Int
+  hashtags        String?   // Comma-separated
+  bestPostingTime String?   // e.g., "Tuesday 9-11 AM UTC"
+  customization   String?   @db.Json  // Platform-specific settings
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  outreachPostId  String
+  outreachPost    OutreachPost @relation(fields: [outreachPostId], references: [id], onDelete: Cascade)
+
+  @@unique([outreachPostId, platform])
+  @@index([outreachPostId])
+}
+
+enum OutreachStatus {
+  DRAFT
+  SCHEDULED
+  POSTED
+  ARCHIVED
+}
+
+// Extend existing models
+extend model Company {
+  outreachPosts   OutreachPost[]
+}
+
+extend model User {
+  outreachPosts   OutreachPost[]
+}
+
+extend model JobPosting {
+  outreachPosts   OutreachPost[]
+}

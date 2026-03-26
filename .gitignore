@@ -1,0 +1,84 @@
+# Dependencies
+node_modules
+/.pnp
+.pnp.js
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+
+# Next.js
+/.next
+/out
+/.next/
+.next/
+
+# Production
+/build
+/dist
+
+# Testing
+/.coverage
+coverage/
+.nyc_output
+
+# Misc
+.DS_Store
+*.pem
+*.swp
+*.swo
+*~
+.env
+.env.local
+.env.*.local
+.env.production.local
+.env.test.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.prettierignore
+
+# Prisma
+prisma/migrations/
+prisma/*.db
+prisma/*.sqlite
+.env.test
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Auth
+.auth/
+
+# Uploads
+uploads/
+public/uploads/

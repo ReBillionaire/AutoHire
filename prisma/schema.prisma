@@ -1,0 +1,461 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Authentication Models
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// User Models
+model User {
+  id              String    @id @default(cuid())
+  name            String?
+  email           String?   @unique
+  emailVerified   DateTime?
+  image           String?
+  password        String?
+  role            UserRole  @default(USER)
+  status          UserStatus @default(ACTIVE)
+
+  // Profile
+  bio             String?
+  phone           String?
+  location        String?
+  companyWebsite  String?
+
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  accounts        Account[]
+  sessions        Session[]
+  companies       Company[]
+  jobPostings     JobPosting[]
+  applications    Application[]
+  interviews      Interview[]
+  candidates      Candidate[]
+  interviewsAsInterviewer Interview[] @relation("Interviewer")
+
+  @@index([email])
+  @@index([role])
+  @@index([createdAt])
+}
+
+enum UserRole {
+  USER
+  CANDIDATE
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  DELETED
+}
+
+// Company Models
+model Company {
+  id              String    @id @default(cuid())
+  name            String    @unique
+  slug            String    @unique
+  description     String?   @db.Text
+  logo            String?
+  website         String?
+  industry        String?
+  size            CompanySize?
+  location        String?
+
+  // Subscription
+  plan            PlanType  @default(FREE)
+  maxJobPostings  Int       @default(1)
+  maxCandidates   Int       @default(10)
+
+  // Metadata
+  verified        Boolean   @default(false)
+  active          Boolean   @default(true)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  ownerId         String
+  owner           User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  jobPostings     JobPosting[]
+  candidates      Candidate[]
+  interviews      Interview[]
+  team            CompanyMember[]
+
+  @@index([ownerId])
+  @@index([slug])
+  @@index([plan])
+}
+
+enum CompanySize {
+  STARTUP
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+}
+
+enum PlanType {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+model CompanyMember {
+  id              String    @id @default(cuid())
+  companyId       String
+  email           String
+  role            CompanyRole
+  inviteToken     String?
+  inviteExpires   DateTime?
+  status          InviteStatus @default(PENDING)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, email])
+  @@index([companyId])
+}
+
+enum CompanyRole {
+  OWNER
+  ADMIN
+  RECRUITER
+  VIEWER
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+// Job Posting Models
+model JobPosting {
+  id              String    @id @default(cuid())
+  title           String
+  slug            String
+  description     String    @db.Text
+  requirements    String    @db.Text
+  benefits        String?   @db.Text
+
+  // Job Details
+  status          JobStatus @default(DRAFT)
+  level           JobLevel  @default(MID)
+  type            JobType   @default(FULL_TIME)
+  salary          String?
+  currency        String?
+  location        String?
+  remote          RemoteType @default(ONSITE)
+
+  // Settings
+  published       DateTime?
+  closed          DateTime?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdById     String
+  createdBy       User      @relation(fields: [createdById], references: [id])
+
+  applications    Application[]
+  interviews      Interview[]
+
+  @@unique([companyId, slug])
+  @@index([companyId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum JobStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  ARCHIVED
+}
+
+enum JobLevel {
+  ENTRY
+  MID
+  SENIOR
+  LEAD
+  EXECUTIVE
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  TEMPORARY
+  INTERNSHIP
+}
+
+enum RemoteType {
+  ONSITE
+  HYBRID
+  REMOTE
+}
+
+// Candidate Models
+model Candidate {
+  id              String    @id @default(cuid())
+  firstName       String
+  lastName        String
+  email           String
+  phone           String?
+
+  // Resume & Files
+  resume          String?
+  resumeText      String?   @db.Text
+  coverLetter     String?   @db.Text
+  portfolio       String?
+
+  // AI Analysis
+  aiSummary       String?   @db.Text
+  aiScore         Float?
+  aiTags          String?   @db.Text
+
+  status          CandidateStatus @default(APPLIED)
+  source          CandidateSource?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  applications    Application[]
+  interviews      Interview[]
+  evaluations     CandidateEvaluation[]
+
+  @@unique([email, companyId])
+  @@index([companyId])
+  @@index([status])
+  @@index([aiScore])
+}
+
+enum CandidateStatus {
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+enum CandidateSource {
+  WEBSITE
+  LINKEDIN
+  EMAIL
+  REFERRAL
+  IMPORTED
+  API
+}
+
+// Application Models
+model Application {
+  id              String    @id @default(cuid())
+  coverLetter     String?   @db.Text
+
+  status          ApplicationStatus @default(APPLIED)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  jobPostingId    String
+  jobPosting      JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  candidateId     String
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([jobPostingId, candidateId])
+  @@index([jobPostingId])
+  @@index([candidateId])
+  @@index([status])
+}
+
+enum ApplicationStatus {
+  APPLIED
+  UNDER_REVIEW
+  SHORTLISTED
+  REJECTED
+  WITHDRAWN
+  ACCEPTED
+}
+
+// Interview Models
+model Interview {
+  id              String    @id @default(cuid())
+  type            InterviewType
+  status          InterviewStatus @default(SCHEDULED)
+
+  // Scheduling
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  duration        Int?
+
+  // Content
+  notes           String?   @db.Text
+  recording       String?
+  transcript      String?   @db.Text
+  aiInsights      String?   @db.Text
+  aiScore         Float?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  jobPostingId    String
+  jobPosting      JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  candidateId     String
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  interviewerId   String?
+  interviewer     User?     @relation("Interviewer", fields: [interviewerId], references: [id], onDelete: SetNull)
+
+  questions       InterviewQuestion[]
+  evaluations     InterviewEvaluation[]
+
+  @@index([jobPostingId])
+  @@index([candidateId])
+  @@index([companyId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+enum InterviewType {
+  SCREENING
+  PHONE
+  TECHNICAL
+  BEHAVIORAL
+  CASE_STUDY
+  PRESENTATION
+  FINAL
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model InterviewQuestion {
+  id              String    @id @default(cuid())
+  question        String
+  answer          String?   @db.Text
+  aiEvaluation    String?   @db.Text
+  score           Float?
+
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  interviewId     String
+  interview       Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  @@index([interviewId])
+}
+
+// Evaluation Models
+model InterviewEvaluation {
+  id              String    @id @default(cuid())
+  score           Int
+  feedback        String?   @db.Text
+  recommendation  EvaluationRecommendation
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  interviewId     String
+  interview       Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  reviewerId      String?
+  reviewer        User?     @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([interviewId])
+}
+
+model CandidateEvaluation {
+  id              String    @id @default(cuid())
+  score           Float
+  notes           String?   @db.Text
+  recommendation  EvaluationRecommendation
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  candidateId     String
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+}
+
+enum EvaluationRecommendation {
+  STRONG_YES
+  YES
+  MAYBE
+  NO
+  STRONG_NO
+}
