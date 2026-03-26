@@ -67,8 +67,8 @@ export const config = {
     }),
   ],
   pages: {
-    signIn: "/auth/signin",
-    error: "/auth/error",
+    signIn: "/login",
+    error: "/login",
   },
   callbacks: {
     async jwt({ token, user, trigger, session }) {
@@ -92,12 +92,10 @@ export const config = {
       return session;
     },
     async signIn({ user, account }) {
-      // Allow OAuth sign-ins
       if (account?.provider !== "credentials") {
         return true;
       }
 
-      // For credentials, additional checks
       const dbUser = await prisma.user.findUnique({
         where: { email: user.email! },
       });
