@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, LayoutGrid, List } from 'lucide-react';
+import { Search, LayoutGrid, List, GitBranch, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { KanbanBoard } from '@/components/pipeline/kanban-board';
 import { PipelineListView } from '@/components/pipeline/pipeline-list-view';
 
@@ -38,7 +39,7 @@ interface Candidate {
 }
 
 export default function PipelinePage() {
-  const [selectedJobId, setSelectedJobId] = useState<string>('1');
+  const [selectedJobId, setSelectedJobId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [scoreFilter, setScoreFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
@@ -49,7 +50,6 @@ export default function PipelinePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch jobs and candidates in parallel
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -67,15 +67,13 @@ export default function PipelinePage() {
         const jobsData = await jobsRes.json();
         const candidatesData = await candidatesRes.json();
 
-        // Defensive: handle both array and object API responses
-      const jobsArr = Array.isArray(jobsData) ? jobsData : (jobsData?.jobs || jobsData?.data || []);
-      const candidatesArr = Array.isArray(candidatesData) ? candidatesData : (candidatesData?.candidates || candidatesData?.data || []);
+        const jobsList = Array.isArray(jobsData) ? jobsData : (jobsData.jobs || []);
+        const candidatesList = Array.isArray(candidatesData) ? candidatesData : (candidatesData.candidates || []);
 
-      setJobs(jobsArr);
+        setJobs(jobsList);
 
-        // Map candidates with job title information
-        const enrichedCandidates = candidatesArr.map((candidate: Candidate) => {
-          const job = jobsArr.find((j: Job) => j.id === candidate.jobId);
+        const enrichedCandidates = candidatesList.map((candidate: any) => {
+          const job = jobsList.find((j: Job) => j.id === candidate.jobId);
           return {
             ...candidate,
             jobTitle: job?.title || 'Unknown Position',
@@ -84,13 +82,11 @@ export default function PipelinePage() {
 
         setCandidates(enrichedCandidates);
 
-        // Set first job as default if available
-        if (jobsArr.length > 0 && !selectedJobId) {
-          setSelectedJobId(jobsData[0].id);
+        if (jobsList.length > 0) {
+          setSelectedJobId(jobsList[0].id);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
-        console.error('Error fetching data:', err);
       } finally {
         setLoading(false);
       }
@@ -99,14 +95,14 @@ export default function PipelinePage() {
     fetchData();
   }, []);
 
-  // Filter candidates by job and search
   const filteredCandidates = useMemo(() => {
     return candidates.filter((candidate) => {
-      const matchesJob = candidate.jobId === selectedJobId;
+      const matchesJob = !selectedJobId || candidate.jobId === selectedJobId;
       const matchesSearch =
-        candidate.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        candidate.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        candidate.company.toLowerCase().includes(searchQuery.toLowerCase());
+        !searchQuery ||
+        candidate.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        candidate.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        candidate.company?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesScore =
         scoreFilter === 'all' ||
         (scoreFilter === 'high' && candidate.aiScore >= 80) ||
@@ -121,170 +117,134 @@ export default function PipelinePage() {
 
   const selectedJob = jobs.find((j) => j.id === selectedJobId);
 
-  // Loading skeleton
-  if (loading) {
-    return (
-      <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-900">
-        <div className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-6 py-4">
-          <div className="flex flex-col gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Candidate Pipeline
-              </h1>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                Manage and track candidates through hiring stages
-              </p>
-            </div>
-            <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded animate-pulse w-64" />
-          </div>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="inline-block animate-spin">
-              <div className="h-8 w-8 border-4 border-slate-300 dark:border-slate-600 border-t-blue-500 rounded-full" />
-            </div>
-            <p className="mt-4 text-slate-600 dark:text-slate-400">Loading pipeline...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-900">
-        <div className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-6 py-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-              Candidate Pipeline
-            </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              Manage and track candidates through hiring stages
-            </p>
-          </div>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center text-red-600 dark:text-red-400">
-            <p className="font-semibold">Error loading pipeline</p>
-            <p className="text-sm mt-1">{error}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-900">
-      {/* Header */}
-      <div className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-6 py-4">
-        <div className="flex flex-col gap-4">
+    <div className="flex-1 flex flex-col h-full">
+      {/* Page header */}
+      <div className="p-4 md:p-6 lg:p-8 pb-0 space-y-4 max-w-[1400px]">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-              Candidate Pipeline
-            </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              Manage and track candidates through hiring stages
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Pipeline</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Track candidates through your hiring stages.
             </p>
           </div>
-
-          {/* Filters Row */}
-          <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center">
-            {/* Job Selector */}
-            <Select value={selectedJobId} onValueChange={setSelectedJobId}>
-              <SelectTrigger className="w-full lg:w-64 bg-white dark:bg-slate-800">
-                <SelectValue placeholder="Select a job" />
-              </SelectTrigger>
-              <SelectContent>
-                {jobs.map((job) => (
-                  <SelectItem key={job.id} value={job.id}>
-                    {job.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Search */}
-            <div className="flex-1 lg:flex-initial relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Search candidates..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-white dark:bg-slate-800"
-              />
-            </div>
-
-            {/* Score Filter */}
-            <Select
-              value={scoreFilter}
-              onValueChange={(v) => setScoreFilter(v as typeof scoreFilter)}
-            >
-              <SelectTrigger className="w-full lg:w-48 bg-white dark:bg-slate-800">
-                <SelectValue placeholder="Score range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Scores</SelectItem>
-                <SelectItem value="high">High (80+)</SelectItem>
-                <SelectItem value="medium">Medium (50-79)</SelectItem>
-                <SelectItem value="low">Low (&lt;50)</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Source Filter */}
-            <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="w-full lg:w-48 bg-white dark:bg-slate-800">
-                <SelectValue placeholder="All sources" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sources</SelectItem>
-                <SelectItem value="LinkedIn">LinkedIn</SelectItem>
-                <SelectItem value="Career Page">Career Page</SelectItem>
-                <SelectItem value="Referral">Referral</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* View Toggle */}
-            <div className="flex gap-1 border border-slate-200 dark:border-slate-700 rounded-lg p-1">
-              <Button
-                size="sm"
-                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+          <div className="flex items-center gap-2">
+            <div className="flex gap-0.5 p-0.5 rounded-lg border border-border bg-muted/50">
+              <button
                 onClick={() => setViewMode('kanban')}
-                className="h-8 w-8 p-0"
+                className={`p-1.5 rounded-md transition-all ${
+                  viewMode === 'kanban'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
               >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                size="sm"
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
                 onClick={() => setViewMode('list')}
-                className="h-8 w-8 p-0"
+                className={`p-1.5 rounded-md transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
               >
-                <List className="h-4 w-4" />
-              </Button>
+                <List className="w-4 h-4" />
+              </button>
             </div>
           </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col md:flex-row gap-3">
+          <Select value={selectedJobId} onValueChange={setSelectedJobId}>
+            <SelectTrigger className="w-full md:w-56 h-9 text-sm">
+              <SelectValue placeholder="Select a job" />
+            </SelectTrigger>
+            <SelectContent>
+              {jobs.map((job) => (
+                <SelectItem key={job.id} value={job.id}>
+                  {job.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search candidates..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9 text-sm bg-muted/50 border-transparent hover:border-border focus:border-primary"
+            />
+          </div>
+
+          <Select
+            value={scoreFilter}
+            onValueChange={(v) => setScoreFilter(v as typeof scoreFilter)}
+          >
+            <SelectTrigger className="w-full md:w-36 h-9 text-sm">
+              <SelectValue placeholder="Score range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Scores</SelectItem>
+              <SelectItem value="high">High (80+)</SelectItem>
+              <SelectItem value="medium">Medium (50-79)</SelectItem>
+              <SelectItem value="low">Low (&lt;50)</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sourceFilter} onValueChange={setSourceFilter}>
+            <SelectTrigger className="w-full md:w-36 h-9 text-sm">
+              <SelectValue placeholder="All sources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sources</SelectItem>
+              <SelectItem value="LinkedIn">LinkedIn</SelectItem>
+              <SelectItem value="Career Page">Career Page</SelectItem>
+              <SelectItem value="Referral">Referral</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto">
-        {filteredCandidates.length === 0 && !loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <p className="text-slate-600 dark:text-slate-400 text-lg">
-                No candidates in the pipeline yet.
-              </p>
+      <div className="flex-1 overflow-hidden mt-4">
+        {error ? (
+          <div className="p-6 mx-4 md:mx-6 lg:mx-8 rounded-xl border border-destructive/20 bg-destructive/5 text-center">
+            <p className="text-sm text-destructive font-medium">Error loading pipeline</p>
+            <p className="text-xs text-muted-foreground mt-1">{error}</p>
+          </div>
+        ) : loading ? (
+          <div className="p-4 md:p-6 lg:p-8">
+            <div className="flex gap-4 overflow-hidden">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex-shrink-0 w-72 space-y-3">
+                  <Skeleton className="h-8 w-full rounded-lg" />
+                  <Skeleton className="h-1 w-full rounded-full" />
+                  <div className="space-y-3">
+                    {Array.from({ length: 3 - i % 2 }).map((_, j) => (
+                      <Skeleton key={j} className="h-28 w-full rounded-xl" />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
+        ) : candidates.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <GitBranch className="w-6 h-6 text-primary" />
+              </div>
+              <p className="text-sm font-medium text-foreground mb-1">No candidates in pipeline</p>
+              <p className="text-xs text-muted-foreground">Candidates will appear here as they apply to your jobs.</p>
+            </div>
+          </div>
+        ) : viewMode === 'kanban' ? (
+          <KanbanBoard candidates={filteredCandidates} jobTitle={selectedJob?.title} />
         ) : (
-          <>
-            {viewMode === 'kanban' ? (
-              <KanbanBoard candidates={filteredCandidates} jobTitle={selectedJob?.title} />
-            ) : (
-              <PipelineListView candidates={filteredCandidates} />
-            )}
-          </>
+          <PipelineListView candidates={filteredCandidates} />
         )}
       </div>
     </div>
