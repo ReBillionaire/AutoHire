@@ -1,14 +1,26 @@
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 
-// Initialize OpenAI client
-export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+// Lazy-initialized clients to avoid build-time errors when env vars are missing
+let _openai: OpenAI | null = null;
+let _anthropic: Anthropic | null = null;
+
+export const openai = new Proxy({} as OpenAI, {
+  get(_, prop) {
+    if (!_openai) {
+      _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    }
+    return (_openai as any)[prop];
+  },
 });
 
-// Initialize Anthropic client
-export const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+export const anthropic = new Proxy({} as Anthropic, {
+  get(_, prop) {
+    if (!_anthropic) {
+      _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    }
+    return (_anthropic as any)[prop];
+  },
 });
 
 // Helper function to analyze resume with OpenAI
@@ -125,7 +137,7 @@ export async function matchCandidateToJob(
   candidateProfile: string,
   jobDescription: string
 ) {
-  const response = await anthropic.messages.create({
+  const message = await anthropic.messages.create({
     model: "claude-3-sonnet-20240229",
     max_tokens: 1024,
     messages: [

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
-const client = new Anthropic();
+let _client: Anthropic | null = null;
+function getClient() {
+  if (!_client) _client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  return _client;
+}
 
 const ASSESSMENT_PROMPTS = {
   SKILL: `Generate 10 challenging technical interview questions for a {job_role} position.
@@ -60,7 +64,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const message = await client.messages.create({
+    const message = await getClient().messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 2048,
       messages: [

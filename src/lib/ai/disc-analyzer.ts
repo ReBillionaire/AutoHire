@@ -36,7 +36,11 @@ interface DISCReport {
   };
 }
 
-const client = new Anthropic();
+let _client: Anthropic | null = null;
+function getClient() {
+  if (!_client) _client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  return _client;
+}
 
 export async function analyzeResponses(answers: AnswerData[]): Promise<DISCScores> {
   // Initial scoring based on answer patterns
@@ -181,7 +185,7 @@ Generate a JSON response with this structure:
 
 Ensure the report is insightful, specific to the profile combination, and actionable for hiring teams.`;
 
-  const message = await client.messages.create({
+  const message = await getClient().messages.create({
     model: 'claude-3-5-sonnet-20241022',
     max_tokens: 1024,
     messages: [
