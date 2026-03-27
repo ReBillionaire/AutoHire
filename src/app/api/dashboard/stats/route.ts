@@ -100,15 +100,83 @@ export async function GET() {
       };
     });
 
+    // Map pipeline data to the shape the dashboard expects
+    const stageColors: Record<string, string> = {
+      APPLIED: 'hsl(var(--primary))',
+      SCREENING: '#f59e0b',
+      INTERVIEW: '#8b5cf6',
+      OFFER: '#10b981',
+      HIRED: '#06b6d4',
+      REJECTED: '#ef4444',
+      WITHDRAWN: '#6b7280',
+    };
+
+    const pipeline = pipelineData.map((item) => ({
+      stage: item.status.charAt(0) + item.status.slice(1).toLowerCase(),
+      count: item._count.id,
+      color: stageColors[item.status] || '#6b7280',
+    }));
+
+    // Calculate hire rate
+    const totalApplicants = pipelineData.reduce((sum, item) => sum + item._count.id, 0);
+    const hiredCount = pipelineData.find((item) => item.status === 'HIRED')?._count.id || 0;
+    const hireRate = totalApplicants > 0 ? Math.round((hiredCount / totalApplicants) * 100) : 0;
+
+    // Get upcoming interviews
+    const upcomingInterviews = await prisma.interview.findMany({
+      where: {
+        scheduledAt: {
+          gte: now,
+        },
+      },
+      select: {
+        id: true,
+        scheduledAt: true,
+        type: true,
+        candidate: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+        jobPosting: {
+          select: {
+            title: true,
+          },
+        },
+      },
+      orderBy: {
+        scheduledAt: 'asc',
+      },
+      take: 5,
+    });
+
+    const interviewTypeMap: Record<string, 'phone' | 'video' | 'in-person'> = {
+      SCREENING: 'phone',
+      PHONE: 'phone',
+      TECHNICAL: 'video',
+      BEHAVIORAL: 'video',
+      CASE_STUDY: 'video',
+      PRESENTATION: 'in-person',
+      FINAL: 'in-person',
+    };
+
     return NextResponse.json({
-      openJobs,
-      totalCandidates,
-      interviewsThisWeek,
-      pipelineData: pipelineData.map((item) => ({
-        status: item.status,
-        count: item._count.id,
-      })),
+      stats: {
+        activeJobs: openJobs,
+        totalCandidates,
+        interviewsThisWeek,
+        hireRate,
+      },
+      pipeline,
       recentActivity,
+      upcomingInterviews: upcomingInterviews.map((interview) => ({
+        id: interview.id,
+        candidateName: `${interview.candidate?.firstName || ''} ${interview.candidate?.lastName || ''}`.trim() || 'Unknown',
+        position: interview.jobPosting?.title || 'Unknown Position',
+        time: interview.scheduledAt?.toISOString() || '',
+        type: interviewTypeMap[interview.type] || 'video',
+      })),
     });
   } catch (error) {
     console.error('Dashboard stats error:', error);

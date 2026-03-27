@@ -114,28 +114,28 @@ export default function DashboardPage() {
         <StatsCard
           icon={Briefcase}
           label="Open Jobs"
-          value={dashboardData?.stats.activeJobs ?? 0}
+          value={dashboardData?.stats?.activeJobs ?? 0}
           trend={{ direction: 'up', percentage: 5, period: 'last month' }}
           isLoading={isLoading}
         />
         <StatsCard
           icon={Users}
           label="Candidates"
-          value={dashboardData?.stats.totalCandidates ?? 0}
+          value={dashboardData?.stats?.totalCandidates ?? 0}
           trend={{ direction: 'up', percentage: 12, period: 'last month' }}
           isLoading={isLoading}
         />
         <StatsCard
           icon={Calendar}
           label="Interviews"
-          value={dashboardData?.stats.interviewsThisWeek ?? 0}
+          value={dashboardData?.stats?.interviewsThisWeek ?? 0}
           trend={{ direction: 'down', percentage: 2, period: 'last week' }}
           isLoading={isLoading}
         />
         <StatsCard
           icon={TrendingUp}
           label="Hire Rate"
-          value={dashboardData?.stats.hireRate ? `${dashboardData.stats.hireRate}%` : '0%'}
+          value={dashboardData?.stats?.hireRate ? `${dashboardData.stats.hireRate}%` : '0%'}
           trend={{ direction: 'up', percentage: 8, period: 'last quarter' }}
           isLoading={isLoading}
         />
