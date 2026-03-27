@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Filter, Download, Plus, X } from 'lucide-react';
+import { Search, Download, Plus, Users } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,13 +20,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Candidate {
   id: string;
@@ -41,53 +41,30 @@ interface Candidate {
   joinedDate: string;
 }
 
-function getScoreBadgeColor(score: number | null) {
-  if (score === null) return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200';
-  if (score >= 80) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-  if (score >= 50) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-  return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+function getScoreBadge(score: number | null) {
+  if (score === null) return { text: 'N/A', cls: 'bg-muted text-muted-foreground' };
+  if (score >= 80) return { text: `${score}%`, cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' };
+  if (score >= 50) return { text: `${score}%`, cls: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400' };
+  return { text: `${score}%`, cls: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400' };
 }
 
-function getStageColor(stage: string) {
-  switch (stage) {
-    case 'Applied':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-    case 'Screening':
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-    case 'Interview':
-      return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200';
-    case 'Offer':
-      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200';
-    case 'Hired':
-      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-    case 'Rejected':
-      return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-    case 'Withdrawn':
-      return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200';
-    default:
-      return 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200';
-  }
-}
-
-function CandidateTableSkeleton() {
-  return (
-    <div className="space-y-3 p-6">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="h-16 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
-      ))}
-    </div>
-  );
+function getStageBadge(stage: string) {
+  const map: Record<string, string> = {
+    'Applied': 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+    'Screening': 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400',
+    'Interview': 'bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400',
+    'Offer': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+    'Hired': 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400',
+    'Rejected': 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+    'Withdrawn': 'bg-muted text-muted-foreground',
+  };
+  return map[stage] || 'bg-muted text-muted-foreground';
 }
 
 function stageDisplayName(status: string): string {
   const stageMap: Record<string, string> = {
-    APPLIED: 'Applied',
-    SCREENING: 'Screening',
-    INTERVIEW: 'Interview',
-    OFFER: 'Offer',
-    HIRED: 'Hired',
-    REJECTED: 'Rejected',
-    WITHDRAWN: 'Withdrawn',
+    APPLIED: 'Applied', SCREENING: 'Screening', INTERVIEW: 'Interview',
+    OFFER: 'Offer', HIRED: 'Hired', REJECTED: 'Rejected', WITHDRAWN: 'Withdrawn',
   };
   return stageMap[status] || status;
 }
@@ -97,9 +74,7 @@ function parseAiTags(aiTagsJson: string | null): string[] {
   try {
     const parsed = JSON.parse(aiTagsJson);
     return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 export default function CandidatesPage() {
@@ -116,34 +91,23 @@ export default function CandidatesPage() {
         setLoading(true);
         setError(null);
         const response = await fetch('/api/candidates?include=applications');
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch candidates');
-        }
-
+        if (!response.ok) throw new Error('Failed to fetch candidates');
         const data = await response.json();
-
-        const transformedCandidates: Candidate[] = (data.candidates || []).map(
-          (apiCandidate: any) => {
-            const fullName = `${apiCandidate.firstName} ${apiCandidate.lastName}`;
-            const tags = parseAiTags(apiCandidate.aiTags);
-
-            return {
-              id: apiCandidate.id,
-              name: fullName,
-              email: apiCandidate.email,
-              avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`,
-              latestApplication:
-                apiCandidate.applications?.[0]?.jobPosting?.title || 'No application',
-              applicationCount: apiCandidate.applications?.length || 0,
-              tags: tags,
-              stage: stageDisplayName(apiCandidate.status),
-              score: apiCandidate.aiScore ? Math.round(apiCandidate.aiScore) : null,
-              joinedDate: apiCandidate.createdAt,
-            };
-          }
-        );
-
+        const transformedCandidates: Candidate[] = (data.candidates || []).map((c: any) => {
+          const fullName = `${c.firstName} ${c.lastName}`;
+          return {
+            id: c.id,
+            name: fullName,
+            email: c.email,
+            avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`,
+            latestApplication: c.applications?.[0]?.jobPosting?.title || 'No application',
+            applicationCount: c.applications?.length || 0,
+            tags: parseAiTags(c.aiTags),
+            stage: stageDisplayName(c.status),
+            score: c.aiScore ? Math.round(c.aiScore) : null,
+            joinedDate: c.createdAt,
+          };
+        });
         setCandidates(transformedCandidates);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
@@ -152,7 +116,6 @@ export default function CandidatesPage() {
         setLoading(false);
       }
     };
-
     fetchCandidates();
   }, []);
 
@@ -163,211 +126,206 @@ export default function CandidatesPage() {
   }, [candidates]);
 
   const filteredCandidates = useMemo(() => {
-    return candidates.filter((candidate) => {
-      const matchesSearch =
-        candidate.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        candidate.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        candidate.latestApplication.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStage = stageFilter === 'all' || candidate.stage === stageFilter;
-      const matchesTags =
-        selectedTags.size === 0 ||
-        candidate.tags.some((tag) => selectedTags.has(tag));
+    return candidates.filter((c) => {
+      const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.latestApplication.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStage = stageFilter === 'all' || c.stage === stageFilter;
+      const matchesTags = selectedTags.size === 0 || c.tags.some((t) => selectedTags.has(t));
       return matchesSearch && matchesStage && matchesTags;
     });
   }, [candidates, searchQuery, stageFilter, selectedTags]);
 
   const toggleTag = (tag: string) => {
     const newTags = new Set(selectedTags);
-    if (newTags.has(tag)) {
-      newTags.delete(tag);
-    } else {
-      newTags.add(tag);
-    }
+    if (newTags.has(tag)) newTags.delete(tag);
+    else newTags.add(tag);
     setSelectedTags(newTags);
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-900">
-      <div className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-6 py-4">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                All Candidates
-              </h1>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                Master database of {candidates.length} candidates
-              </p>
-            </div>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Candidate
-            </Button>
-          </div>
-
-          <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Search candidates..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-white dark:bg-slate-800"
-              />
-            </div>
-            <Select value={stageFilter} onValueChange={setStageFilter}>
-              <SelectTrigger className="w-full lg:w-48 bg-white dark:bg-slate-800">
-                <SelectValue placeholder="All stages" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Stages</SelectItem>
-                <SelectItem value="Applied">Applied</SelectItem>
-                <SelectItem value="Screening">Screening</SelectItem>
-                <SelectItem value="Interview">Interview</SelectItem>
-                <SelectItem value="Offer">Offer</SelectItem>
-                <SelectItem value="Hired">Hired</SelectItem>
-                <SelectItem value="Rejected">Rejected</SelectItem>
-                <SelectItem value="Withdrawn">Withdrawn</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline" className="gap-2">
-              <Download className="h-4 w-4" />
-              Export CSV
-            </Button>
-          </div>
-
-          {allTags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase my-1">
-                Skills:
-              </span>
-              {allTags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
-                    selectedTags.has(tag)
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          )}
+    <div className="flex-1 p-4 md:p-6 lg:p-8 space-y-6 max-w-[1400px]">
+      {/* Page header */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Candidates</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {candidates.length} candidates in your database.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+            <Download className="w-3.5 h-3.5" />
+            Export
+          </Button>
+          <Button size="sm" className="gap-1.5">
+            <Plus className="w-4 h-4" />
+            Add Candidate
+          </Button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
-        <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-white dark:bg-slate-950">
-          {error && (
-            <div className="p-6 text-center">
-              <p className="text-red-600 dark:text-red-400 font-medium">Error loading candidates</p>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{error}</p>
-            </div>
-          )}
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, email, or role..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 text-sm bg-muted/50 border-transparent hover:border-border focus:border-primary"
+          />
+        </div>
+        <Select value={stageFilter} onValueChange={setStageFilter}>
+          <SelectTrigger className="w-full md:w-40 h-9 text-sm">
+            <SelectValue placeholder="All stages" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Stages</SelectItem>
+            {['Applied', 'Screening', 'Interview', 'Offer', 'Hired', 'Rejected', 'Withdrawn'].map((s) => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-          {loading && !error && <CandidateTableSkeleton />}
+      {/* Tags */}
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mr-1">Skills:</span>
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => toggleTag(tag)}
+              className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${
+                selectedTags.has(tag)
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-accent'
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
 
-          {!loading && !error && candidates.length === 0 && (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <p className="text-slate-600 dark:text-slate-400 font-medium">No candidates yet</p>
-                <p className="text-sm text-slate-500 dark:text-slate-500 mt-1">Add your first candidate to get started.</p>
+      {/* Table */}
+      {error ? (
+        <div className="p-6 rounded-xl border border-destructive/20 bg-destructive/5 text-center">
+          <p className="text-sm text-destructive font-medium">Error loading candidates</p>
+          <p className="text-xs text-muted-foreground mt-1">{error}</p>
+        </div>
+      ) : loading ? (
+        <div className="rounded-xl border border-border bg-card overflow-hidden p-6 space-y-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-3 w-48" />
               </div>
+              <Skeleton className="h-5 w-20 rounded-full" />
+              <Skeleton className="h-5 w-12 rounded-full" />
             </div>
-          )}
-
-          {!loading && !error && candidates.length > 0 && (
-            <Table>
-              <TableHeader className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-                <TableRow>
-                  <TableHead>Candidate</TableHead>
-                  <TableHead>Latest Application</TableHead>
-                  <TableHead>Applications</TableHead>
-                  <TableHead>Stage</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Skills</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead className="text-right pr-4">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCandidates.map((candidate) => (
-                  <TableRow
-                    key={candidate.id}
-                    className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors border-b border-slate-200 dark:border-slate-800 last:border-b-0"
-                  >
+          ))}
+        </div>
+      ) : candidates.length === 0 ? (
+        <div className="rounded-xl border border-border bg-card">
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+              <Users className="w-6 h-6 text-primary" />
+            </div>
+            <p className="text-sm font-medium text-foreground mb-1">No candidates yet</p>
+            <p className="text-xs text-muted-foreground">Add your first candidate to get started.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-xs font-medium text-muted-foreground">Candidate</TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground">Application</TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground">Stage</TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground">Score</TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground hidden lg:table-cell">Skills</TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground hidden md:table-cell">Joined</TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground text-right pr-4">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredCandidates.map((candidate) => {
+                const scoreBadge = getScoreBadge(candidate.score);
+                return (
+                  <TableRow key={candidate.id} className="border-border hover:bg-muted/30">
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={candidate.avatar} alt={candidate.name} />
-                          <AvatarFallback>{candidate.name.charAt(0)}</AvatarFallback>
+                          <AvatarFallback className="text-xs bg-primary/10 text-primary">{candidate.name.charAt(0)}</AvatarFallback>
                         </Avatar>
-                        <div>
-                          <p className="font-medium text-slate-900 dark:text-white text-sm">{candidate.name}</p>
-                          <p className="text-xs text-slate-600 dark:text-slate-400">{candidate.email}</p>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-medium text-foreground truncate">{candidate.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{candidate.email}</p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-slate-700 dark:text-slate-300">{candidate.latestApplication}</TableCell>
-                    <TableCell className="text-sm text-slate-700 dark:text-slate-300">{candidate.applicationCount}</TableCell>
+                    <TableCell className="text-[13px] text-muted-foreground">{candidate.latestApplication}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={getStageColor(candidate.stage)}>{candidate.stage}</Badge>
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${getStageBadge(candidate.stage)}`}>
+                        {candidate.stage}
+                      </span>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getScoreBadgeColor(candidate.score)}>
-                        {candidate.score !== null ? `${candidate.score}%` : 'N/A'}
-                      </Badge>
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${scoreBadge.cls}`}>
+                        {scoreBadge.text}
+                      </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       <div className="flex gap-1 flex-wrap">
                         {candidate.tags.slice(0, 2).map((tag) => (
-                          <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                          <span key={tag} className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{tag}</span>
                         ))}
                         {candidate.tags.length > 2 && (
-                          <Badge variant="secondary" className="text-xs">+{candidate.tags.length - 2}</Badge>
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">+{candidate.tags.length - 2}</span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-slate-700 dark:text-slate-300">
+                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
                       {new Date(candidate.joinedDate).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right pr-4">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <button className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-accent transition-colors">
                             <span className="sr-only">Actions</span>
-                            <div className="w-4 h-4 flex items-center justify-center gap-0.5">
-                              <div className="w-1 h-1 rounded-full bg-slate-600 dark:bg-slate-400" />
-                              <div className="w-1 h-1 rounded-full bg-slate-600 dark:bg-slate-400" />
-                              <div className="w-1 h-1 rounded-full bg-slate-600 dark:bg-slate-400" />
-                            </div>
-                          </Button>
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-muted-foreground">
+                              <circle cx="8" cy="3" r="1.5" fill="currentColor" />
+                              <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                              <circle cx="8" cy="13" r="1.5" fill="currentColor" />
+                            </svg>
+                          </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem>View Profile</DropdownMenuItem>
-                          <DropdownMenuItem>View All Applications</DropdownMenuItem>
                           <DropdownMenuItem>Send Email</DropdownMenuItem>
                           <DropdownMenuItem>Add Notes</DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600">Remove</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive">Remove</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-
-          {!loading && !error && candidates.length > 0 && filteredCandidates.length === 0 && (
-            <div className="flex items-center justify-center h-64 text-slate-500 dark:text-slate-400">
-              <p>No candidates found matching your filters</p>
+                );
+              })}
+            </TableBody>
+          </Table>
+          {filteredCandidates.length === 0 && (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              No candidates match your filters
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
