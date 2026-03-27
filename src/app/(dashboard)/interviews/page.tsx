@@ -48,7 +48,9 @@ export default function InterviewsPage() {
         const data = await response.json();
 
         // Transform API response to Interview format
-        const transformedInterviews = data.map((interview: any) => ({
+        // Defensive: handle both array and object API responses
+        const dataArr = Array.isArray(data) ? data : (data?.interviews || data?.data || []);
+        const transformedInterviews = dataArr.map((interview: any) => ({
           id: interview.id,
           candidateName: interview.candidate?.name || 'Unknown',
           candidateImage: interview.candidate?.name
