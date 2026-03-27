@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getTimelineEvents } from '@/lib/automation-engine';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/automation/timeline
  * Get pipeline activity timeline for company or specific application

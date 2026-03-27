@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { seedDefaultRules } from '@/lib/automation-engine';
 import { AutomationTrigger, AutomationAction } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/automation
  * Fetch all automation rules for the user's company

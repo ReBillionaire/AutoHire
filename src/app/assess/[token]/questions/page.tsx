@@ -26,6 +26,8 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 
+export const dynamic = 'force-dynamic';
+
 interface Question {
   id: string;
   text: string;

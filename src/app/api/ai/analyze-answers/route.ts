@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeAssessmentAnswers, detectSuspiciousActivity } from '@/lib/ai/answer-analyzer';
 import { AnalyzeAnswersRequest, AIAnalysisResponse, AssessmentAnalysis } from '@/types/ai';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body: AnalyzeAnswersRequest = await request.json();

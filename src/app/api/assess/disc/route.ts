@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateDISCReport, determinePrimaryProfile, calculateDISCScores } from '@/lib/ai/disc-analyzer';
 
+export const dynamic = 'force-dynamic';
+
 // Standard 28-question DISC Assessment
 const DISC_QUESTIONS = [
   {

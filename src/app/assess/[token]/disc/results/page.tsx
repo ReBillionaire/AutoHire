@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts';
 import { AlertCircle, ArrowRight, Download } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 interface DISCScores {
   D: number;
   I: number;

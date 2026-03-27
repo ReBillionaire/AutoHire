@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { openai } from '@/lib/ai-clients';
 import { auth } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * POST /api/ai/generate-questions
  * Generate AI-powered assessment questions for a company's question bank

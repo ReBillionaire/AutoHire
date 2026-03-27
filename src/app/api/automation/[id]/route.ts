@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { AutomationTrigger, AutomationAction } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/automation/[id]
  * Fetch a single automation rule

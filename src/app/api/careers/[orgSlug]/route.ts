@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 // Placeholder data for demonstration
 const careerPagesDB: any = {
   'acme-corp': {

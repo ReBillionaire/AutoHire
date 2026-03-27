@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeResume, extractAchievements } from '@/lib/ai/resume-analyzer';
 import { AnalyzeResumeRequest, AIAnalysisResponse, ResumeAnalysis } from '@/types/ai';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body: AnalyzeResumeRequest = await request.json();

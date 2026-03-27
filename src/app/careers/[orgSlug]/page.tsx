@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/select';
 import { JobCard } from '@/components/careers/job-card';
 
+export const dynamic = 'force-dynamic';
+
 interface Job {
   id: string;
   title: string;

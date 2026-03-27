@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { AutomationTrigger } from '@prisma/client';
 import { executeAutomation } from '@/lib/automation-engine';
 
+export const dynamic = 'force-dynamic';
+
 interface ExecutionContext {
   applicationId?: string;
   candidateId?: string;

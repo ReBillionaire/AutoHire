@@ -6,6 +6,8 @@ import { ArrowLeft, Briefcase, MapPin, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ApplyForm } from '@/components/careers/apply-form';
 
+export const dynamic = 'force-dynamic';
+
 interface Job {
   id: string;
   title: string;

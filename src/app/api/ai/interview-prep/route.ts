@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateInterviewQuestions } from '@/lib/ai/interview-prep';
 import { InterviewPrepRequest, AIAnalysisResponse, InterviewPrep } from '@/types/ai';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body: InterviewPrepRequest = await request.json();

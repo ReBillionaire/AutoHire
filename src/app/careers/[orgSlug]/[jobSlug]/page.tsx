@@ -6,6 +6,8 @@ import { Share2, ArrowLeft, MapPin, Briefcase, DollarSign, Clock } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
+export const dynamic = 'force-dynamic';
+
 interface Job {
   id: string;
   title: string;

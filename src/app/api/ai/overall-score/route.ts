@@ -10,6 +10,8 @@ import {
 } from '@/lib/ai/overall-scorer';
 import { OverallScoreRequest, AIAnalysisResponse, OverallScore } from '@/types/ai';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body: OverallScoreRequest = await request.json();

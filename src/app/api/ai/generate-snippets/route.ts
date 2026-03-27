@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openai } from '@/lib/ai-clients';
 
+export const dynamic = 'force-dynamic';
+
 interface GenerateSnippetsRequest {
   jobTitle: string;
   description: string;

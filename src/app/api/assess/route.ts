@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { openai } from '@/lib/ai-clients';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/assess?token=xxx
  * Fetch assessment session details and questions

@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeVideoTranscript } from '@/lib/ai/video-analyzer';
 import { AnalyzeVideoRequest, AIAnalysisResponse, VideoAnalysis } from '@/types/ai';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body: AnalyzeVideoRequest = await request.json();

@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { ReminderStatus, ReminderType } from '@prisma/client';
 import { processReminders } from '@/lib/automation-engine';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/automation/reminders
  * Fetch reminders for the company with optional filters

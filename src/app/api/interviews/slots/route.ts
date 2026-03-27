@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { addDays, startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
 
+export const dynamic = 'force-dynamic';
+
 interface AvailabilitySlot {
   date: Date;
   time: string;
