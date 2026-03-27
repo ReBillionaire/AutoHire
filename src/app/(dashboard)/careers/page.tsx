@@ -1,109 +1,251 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { Plus, Edit, Eye, Trash2, Globe } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-export default function CareersPage() {
-  const [settings, setSettings] = useState({
-    enabled: true,
-    companyName: "Acme Inc.",
-    headline: "Join Our Team",
-    description: "We are building the future of technology. Come work with amazing people on challenging problems.",
-    brandColor: "#3B82F6",
-    showLogo: true,
+interface CareerPage {
+  id: string;
+  title: string;
+  description: string;
+  logo: string;
+  banner: string;
+  orgSlug: string;
+  theme: 'light' | 'dark';
+  published: boolean;
+  jobCount?: number;
+}
+
+export default function CareersManagement() {
+  const [careerPages, setCareerPages] = useState<CareerPage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    logo: '',
+    banner: '',
+    theme: 'light' as 'light' | 'dark',
   });
+  const [submitting, setSubmitting] = useState(false);
 
-  const activeJobs = [
-    { title: "Senior Frontend Engineer", department: "Engineering", location: "Remote", type: "Full-time", applicants: 45 },
-    { title: "Product Manager", department: "Product", location: "San Francisco", type: "Full-time", applicants: 32 },
-    { title: "Backend Engineer", department: "Engineering", location: "Remote", type: "Full-time", applicants: 28 },
-    { title: "UX Designer", department: "Design", location: "New York", type: "Full-time", applicants: 21 },
-  ];
+  useEffect(() => { fetchCareerPages(); }, []);
+
+  const fetchCareerPages = async () => {
+    try {
+      const response = await fetch('/api/careers');
+      const data = await response.json();
+      setCareerPages(data.careerPages || []);
+    } catch (error) {
+      console.error('Failed to fetch career pages:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const method = editingId ? 'PUT' : 'POST';
+      const url = editingId ? `/api/careers/${editingId}` : '/api/careers';
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (response.ok) {
+        await fetchCareerPages();
+        setOpenDialog(false);
+        setEditingId(null);
+        setFormData({ title: '', description: '', logo: '', banner: '', theme: 'light' });
+      }
+    } catch (error) {
+      console.error('Failed to save career page:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEdit = (page: CareerPage) => {
+    setFormData({ title: page.title, description: page.description, logo: page.logo, banner: page.banner, theme: page.theme });
+    setEditingId(page.id);
+    setOpenDialog(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this career page?')) return;
+    try {
+      await fetch(`/api/careers/${id}`, { method: 'DELETE' });
+      await fetchCareerPages();
+    } catch (error) {
+      console.error('Failed to delete career page:', error);
+    }
+  };
+
+  const handleTogglePublish = async (page: CareerPage) => {
+    try {
+      await fetch(`/api/careers/${page.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ published: !page.published }),
+      });
+      await fetchCareerPages();
+    } catch (error) {
+      console.error('Failed to toggle publish:', error);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="flex-1 space-y-6 p-4 md:p-6 lg:p-8 max-w-[1400px]">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Career Page</h1>
-          <p className="text-slate-500 mt-1">Customize your public career page</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Career Pages</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage public career pages for your organizations.
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <a href="#" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-all text-sm">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-            Preview
-          </a>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <div className={`relative w-11 h-6 rounded-full transition-colors ${settings.enabled ? "bg-blue-600" : "bg-slate-300"}`}>
-              <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.enabled ? "translate-x-5" : ""}`} />
-              <input type="checkbox" checked={settings.enabled} onChange={(e) => setSettings({ ...settings, enabled: e.target.checked })} className="sr-only" />
-            </div>
-            <span className="text-sm font-medium text-slate-700">{settings.enabled ? "Live" : "Offline"}</span>
-          </label>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Settings */}
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Page Settings</h2>
-            <div className="space-y-4">
+        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+          <DialogTrigger asChild>
+            <Button
+              size="sm"
+              className="gap-1.5 h-9 text-sm"
+              onClick={() => {
+                setEditingId(null);
+                setFormData({ title: '', description: '', logo: '', banner: '', theme: 'light' });
+              }}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Career Page
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-base">{editingId ? 'Edit' : 'Create'} Career Page</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Company Name</label>
-                <input type="text" value={settings.companyName} onChange={(e) => setSettings({ ...settings, companyName: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none text-sm text-slate-900" />
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Page Title</label>
+                <Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="e.g., Join Our Team" required className="mt-1.5 h-9 text-sm" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Headline</label>
-                <input type="text" value={settings.headline} onChange={(e) => setSettings({ ...settings, headline: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none text-sm text-slate-900" />
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Description</label>
+                <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Describe your organization and culture" rows={3} className="mt-1.5 text-sm" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
-                <textarea value={settings.description} onChange={(e) => setSettings({ ...settings, description: e.target.value })} rows={3} className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none text-sm text-slate-900 resize-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Brand Color</label>
-                <div className="flex items-center gap-3">
-                  <input type="color" value={settings.brandColor} onChange={(e) => setSettings({ ...settings, brandColor: e.target.value })} className="w-10 h-10 rounded-lg border border-slate-300 cursor-pointer" />
-                  <input type="text" value={settings.brandColor} onChange={(e) => setSettings({ ...settings, brandColor: e.target.value })} className="w-28 px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-900 font-mono" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Logo URL</label>
+                  <Input type="url" value={formData.logo} onChange={(e) => setFormData({ ...formData, logo: e.target.value })} placeholder="https://..." className="mt-1.5 h-9 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Banner URL</label>
+                  <Input type="url" value={formData.banner} onChange={(e) => setFormData({ ...formData, banner: e.target.value })} placeholder="https://..." className="mt-1.5 h-9 text-sm" />
                 </div>
               </div>
-              <button className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all text-sm">
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Preview */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-            <p className="text-xs font-medium text-slate-500 uppercase">Live Preview</p>
-          </div>
-          <div className="p-6">
-            <div className="rounded-lg border border-slate-200 overflow-hidden">
-              <div className="p-8 text-center" style={{ backgroundColor: settings.brandColor + "10" }}>
-                <h2 className="text-xl font-bold text-slate-900">{settings.headline}</h2>
-                <p className="text-sm text-slate-600 mt-2 max-w-md mx-auto">{settings.description}</p>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Theme</label>
+                <Select value={formData.theme} onValueChange={(value: 'light' | 'dark') => setFormData({ ...formData, theme: value })}>
+                  <SelectTrigger className="mt-1.5 h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">Light</SelectItem>
+                    <SelectItem value="dark">Dark</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="p-4 space-y-2">
-                <p className="text-xs font-medium text-slate-500 uppercase mb-3">Open Positions ({activeJobs.length})</p>
-                {activeJobs.map((job, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors">
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{job.title}</p>
-                      <p className="text-xs text-slate-500">{job.department} · {job.location} · {job.type}</p>
-                    </div>
-                    <button className="text-xs font-medium px-3 py-1.5 rounded-lg text-white" style={{ backgroundColor: settings.brandColor }}>
-                      Apply
-                    </button>
-                  </div>
-                ))}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setOpenDialog(false)}>Cancel</Button>
+                <Button type="submit" size="sm" disabled={submitting}>{submitting ? 'Saving...' : 'Save'}</Button>
               </div>
-            </div>
-          </div>
-        </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
+
+      {/* Content */}
+      {loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
+        </div>
+      ) : careerPages.length === 0 ? (
+        <div className="py-16 text-center">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <Globe className="w-6 h-6 text-primary" />
+          </div>
+          <p className="text-sm font-medium text-foreground mb-1">No career pages yet</p>
+          <p className="text-xs text-muted-foreground mb-4">Create a career page to showcase your open positions.</p>
+          <Button size="sm" variant="outline" onClick={() => setOpenDialog(true)}>Create Your First Career Page</Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {careerPages.map((page) => (
+            <div key={page.id} className="rounded-xl border border-border bg-card p-5 hover:shadow-elevation-1 transition-all">
+              <div className="flex gap-4">
+                {page.logo && (
+                  <div className="relative w-14 h-14 flex-shrink-0 rounded-xl border border-border overflow-hidden bg-muted">
+                    <Image src={page.logo} alt={page.title} fill className="object-contain" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-3 mb-1.5">
+                    <div className="min-w-0">
+                      <h3 className="text-[15px] font-semibold text-foreground truncate">{page.title}</h3>
+                      <p className="text-[11px] text-muted-foreground">/{page.orgSlug}</p>
+                    </div>
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
+                      page.published
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {page.published ? 'Published' : 'Draft'}
+                    </span>
+                  </div>
+                  {page.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{page.description}</p>
+                  )}
+                  <p className="text-[11px] text-muted-foreground mb-3">{page.jobCount || 0} active positions</p>
+                  <div className="flex gap-1.5">
+                    <Link href={`/careers/${page.orgSlug}`} target="_blank">
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                        <Eye className="w-3 h-3" /> View
+                      </Button>
+                    </Link>
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleEdit(page)}>
+                      <Edit className="w-3 h-3" /> Edit
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleTogglePublish(page)}>
+                      {page.published ? 'Unpublish' : 'Publish'}
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => handleDelete(page.id)}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
