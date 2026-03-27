@@ -67,11 +67,15 @@ export default function PipelinePage() {
         const jobsData = await jobsRes.json();
         const candidatesData = await candidatesRes.json();
 
-        setJobs(jobsData);
+        // Defensive: handle both array and object API responses
+      const jobsArr = Array.isArray(jobsData) ? jobsData : (jobsData?.jobs || jobsData?.data || []);
+      const candidatesArr = Array.isArray(candidatesData) ? candidatesData : (candidatesData?.candidates || candidatesData?.data || []);
+
+      setJobs(jobsArr);
 
         // Map candidates with job title information
-        const enrichedCandidates = candidatesData.map((candidate: Candidate) => {
-          const job = jobsData.find((j: Job) => j.id === candidate.jobId);
+        const enrichedCandidates = candidatesArr.map((candidate: Candidate) => {
+          const job = jobsArr.find((j: Job) => j.id === candidate.jobId);
           return {
             ...candidate,
             jobTitle: job?.title || 'Unknown Position',
@@ -81,7 +85,7 @@ export default function PipelinePage() {
         setCandidates(enrichedCandidates);
 
         // Set first job as default if available
-        if (jobsData.length > 0 && !selectedJobId) {
+        if (jobsArr.length > 0 && !selectedJobId) {
           setSelectedJobId(jobsData[0].id);
         }
       } catch (err) {
