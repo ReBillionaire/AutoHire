@@ -305,7 +305,7 @@ function generateCultureFitQuestions(candidateProfile: CompositeCandidateProfile
         targetArea: 'Initiative',
         difficulty: 'medium',
         rationale: 'S types avoid conflict; assess ability to speak up',
-        evaluationCriteria': ['Took initiative', 'Handled respectfully', 'Positive outcome'],
+        evaluationCriteria: ['Took initiative', 'Handled respectfully', 'Positive outcome'],
         expectedAnswerLength: 'medium',
         scoringRubric: 'Good if shows assertiveness without aggression',
       });
