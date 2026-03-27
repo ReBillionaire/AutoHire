@@ -524,10 +524,10 @@ export default function InterviewDetailPage({ params }: { params: { id: string }
               placeholder="Add notes about this interview..."
               rows={8}
               className="font-mono text-sm"
-              defaultValue={`• Candidate demonstrated strong technical knowledge
+              defaultValue="• Candidate demonstrated strong technical knowledge
 • Good communication skills
 • Asked thoughtful questions about company culture
-• Mentioned interest in mentoring junior developers`}
+• Mentioned interest in mentoring junior developers"
             />
             <Button className="mt-4">Save Notes</Button>
           </Card>

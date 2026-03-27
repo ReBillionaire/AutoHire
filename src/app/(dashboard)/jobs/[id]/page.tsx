@@ -1,151 +1,228 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import { ArrowLeft, MapPin, DollarSign, Clock, Users, Briefcase, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
+import { ArrowLeft, Edit, Users, Loader } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-interface JobDetail {
+interface Job {
   id: string;
   title: string;
-  department: string | null;
-  location: string | null;
-  type: string;
-  salaryMin: number | null;
-  salaryMax: number | null;
-  description: string | null;
-  requirements: string | null;
+  department: string;
+  location: string;
   status: string;
-  createdAt: string;
-  _count?: { applications: number };
+  applicationCount: number;
+  postedAt: string;
 }
 
-function getStatusBadge(status: string) {
-  const map: Record<string, string> = {
-    DRAFT: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200',
-    PUBLISHED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-    CLOSED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-    PAUSED: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-  };
-  return map[status] || map.DRAFT;
+interface Application {
+  id: string;
+  candidateName: string;
+  email: string;
+  status: 'new' | 'reviewing' | 'interview' | 'rejected' | 'hired';
+  submittedAt: string;
+  rating?: number;
 }
 
-export default function JobDetailPage() {
-  const params = useParams();
-  const [job, setJob] = useState<JobDetail | null>(null);
+export default function JobDetailPage({ params }: { params: { id: string } }) {
+  const [job, setJob] = useState<Job | null>(null);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchJob = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch(`/api/jobs/${params.id}`);
-        if (!res.ok) throw new Error('Job not found');
-        const data = await res.json();
-        setJob(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load job');
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (params.id) fetchJob();
+    fetchJobDetail();
   }, [params.id]);
+
+  const fetchJobDetail = async () => {
+    try {
+      const [jobRes, appRes] = await Promise.all([
+        fetch(`/api/jobs/${params.id}`),
+        fetch(`/api/jobs/${params.id}/applications`),
+      ]);
+
+      const jobData = await jobRes.json();
+      const appData = await appRes.json();
+
+      setJob(jobData.job);
+      setApplications(appData.applications);
+    } catch (error) {
+      console.error('Failed to fetch job details:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (
+    status: 'new' | 'reviewing' | 'interview' | 'rejected' | 'hired'
+  ) => {
+    switch (status) {
+      case 'new':
+        return 'bg-blue-100 text-blue-700';
+      case 'reviewing':
+        return 'bg-yellow-100 text-yellow-700';
+      case 'interview':
+        return 'bg-purple-100 text-purple-700';
+      case 'rejected':
+        return 'bg-red-100 text-red-700';
+      case 'hired':
+        return 'bg-green-100 text-green-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
 
   if (loading) {
     return (
-      <div className="flex-1 space-y-6 p-6 bg-slate-50 dark:bg-slate-950">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-48" />
-        <Skeleton className="h-96" />
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (error || !job) {
+  if (!job) {
     return (
-      <div className="flex-1 space-y-6 p-6 bg-slate-50 dark:bg-slate-950">
-        <Link href="/jobs">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="w-4 h-4" /> Back to Jobs
-          </Button>
-        </Link>
-        <Card className="p-6 border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
-          <p className="text-red-800 dark:text-red-200">{error || 'Job not found'}</p>
-        </Card>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-2">Job Not Found</h1>
+          <Link href="/dashboard/jobs">
+            <Button variant="outline">Back to Jobs</Button>
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 space-y-6 p-6 bg-slate-50 dark:bg-slate-950">
-      <div className="flex items-center gap-4">
-        <Link href="/jobs">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{job.title}</h1>
-          <div className="flex items-center gap-4 mt-2 text-sm text-slate-600 dark:text-slate-400">
-            {job.department && <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" />{job.department}</span>}
-            {job.location && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{job.location}</span>}
-            <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{job.type}</span>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/jobs">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold">{job.title}</h1>
+            <p className="text-gray-600 mt-1">
+              {job.department} • {job.location}
+            </p>
           </div>
         </div>
-        <Badge className={getStatusBadge(job.status)}>{job.status}</Badge>
+        <Link href={`/dashboard/jobs/create?id=${job.id}`}>
+          <Button>
+            <Edit className="w-4 h-4 mr-2" />
+            Edit
+          </Button>
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          {job.description && (
-            <Card className="p-6 bg-white dark:bg-slate-900">
-              <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Description</h3>
-              <div className="prose prose-slate dark:prose-invert max-w-none text-sm whitespace-pre-wrap">
-                {job.description}
-              </div>
-            </Card>
-          )}
-          {job.requirements && (
-            <Card className="p-6 bg-white dark:bg-slate-900">
-              <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Requirements</h3>
-              <div className="prose prose-slate dark:prose-invert max-w-none text-sm whitespace-pre-wrap">
-                {job.requirements}
-              </div>
-            </Card>
-          )}
+      {/* Key Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="border rounded-lg p-6">
+          <p className="text-sm text-gray-600 font-medium mb-2">Status</p>
+          <p className="text-2xl font-bold capitalize">{job.status}</p>
         </div>
-        <Card className="p-6 bg-white dark:bg-slate-900 h-fit">
-          <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Job Details</h3>
-          <div className="space-y-4">
-            {(job.salaryMin || job.salaryMax) && (
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Salary Range</p>
-                <p className="font-medium text-slate-900 dark:text-white mt-1 flex items-center gap-1">
-                  <DollarSign className="w-4 h-4" />
-                  {job.salaryMin?.toLocaleString() || '?'} - {job.salaryMax?.toLocaleString() || '?'}
-                </p>
-              </div>
-            )}
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Applicants</p>
-              <p className="font-medium text-slate-900 dark:text-white mt-1 flex items-center gap-1">
-                <Users className="w-4 h-4" />
-                {job._count?.applications || 0} candidates
-              </p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500">Posted</p>
-              <p className="font-medium text-slate-900 dark:text-white mt-1">
-                {new Date(job.createdAt).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-        </Card>
+        <div className="border rounded-lg p-6">
+          <p className="text-sm text-gray-600 font-medium mb-2">Applications</p>
+          <p className="text-2xl font-bold">{job.applicationCount}</p>
+        </div>
+        <div className="border rounded-lg p-6">
+          <p className="text-sm text-gray-600 font-medium mb-2">Posted</p>
+          <p className="text-2xl font-bold">
+            {new Date(job.postedAt).toLocaleDateString()}
+          </p>
+        </div>
       </div>
+
+      {/* Applications Table */}
+      <Tabs defaultValue="all" className="border rounded-lg p-6">
+        <TabsList>
+          <TabsTrigger value="all">
+            All ({applications.length})
+          </TabsTrigger>
+          <TabsTrigger value="new">
+            New (
+            {applications.filter((a) => a.status === 'new').length})
+          </TabsTrigger>
+          <TabsTrigger value="interview">
+            Interview (
+            {applications.filter((a) => a.status === 'interview').length})
+          </TabsTrigger>
+          <TabsTrigger value="hired">
+            Hired (
+            {applications.filter((a) => a.status === 'hired').length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all" className="mt-6">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-3 px-4 font-semibold">Name</th>
+                  <th className="text-left py-3 px-4 font-semibold">Email</th>
+                  <th className="text-left py-3 px-4 font-semibold">Status</th>
+                  <th className="text-left py-3 px-4 font-semibold">Submitted</th>
+                  <th className="text-right py-3 px-4 font-semibold">Rating</th>
+                </tr>
+              </thead>
+              <tbody>
+                {applications.map((app) => (
+                  <tr
+                    key={app.id}
+                    className="border-b hover:bg-gray-50 cursor-pointer"
+                  >
+                    <td className="py-3 px-4 font-medium">{app.candidateName}</td>
+                    <td className="py-3 px-4 text-gray-600">{app.email}</td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(
+                          app.status
+                        )}`}
+                      >
+                        {app.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-gray-600 text-sm">
+                      {new Date(app.submittedAt).toLocaleDateString()}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      {app.rating && (
+                        <span className="text-sm font-medium">{app.rating}/5</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="new" className="mt-6">
+          <div className="text-center py-8 text-gray-600">
+            {applications.filter((a) => a.status === 'new').length === 0
+              ? 'No new applications'
+              : 'Applications list filtered'}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="interview" className="mt-6">
+          <div className="text-center py-8 text-gray-600">
+            {applications.filter((a) => a.status === 'interview').length === 0
+              ? 'No candidates in interview stage'
+              : 'Applications list filtered'}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="hired" className="mt-6">
+          <div className="text-center py-8 text-gray-600">
+            {applications.filter((a) => a.status === 'hired').length === 0
+              ? 'No hired candidates yet'
+              : 'Applications list filtered'}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

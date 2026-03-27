@@ -11,7 +11,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="flex h-screen bg-background">
-      {/* Sidebar â hidden on mobile, shown on md+ */}
+      {/* Sidebar — hidden on mobile, shown on md+ */}
       <div className="hidden md:block flex-shrink-0">
         <Sidebar />
       </div>

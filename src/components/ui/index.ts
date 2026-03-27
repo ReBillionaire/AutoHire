@@ -151,11 +151,3 @@ export type {
 
 // Checkbox
 export { Checkbox } from "./checkbox"
-
-// Dropdown Menu
-export {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "./dropdown-menu"

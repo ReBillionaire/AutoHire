@@ -1,180 +1,286 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import { Briefcase, MapPin, Clock, Search, Building2, Loader2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import Image from 'next/image';
 import Link from 'next/link';
+import { Search, MapPin, Briefcase, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { JobCard } from '@/components/careers/job-card';
 
-interface JobListing {
+interface Job {
   id: string;
-  slug: string;
   title: string;
   department: string;
   location: string;
-  type: string;
+  type: 'full-time' | 'part-time' | 'contract';
+  workMode: 'remote' | 'hybrid' | 'on-site';
   postedAt: string;
+  slug: string;
+  salary?: {
+    min: number;
+    max: number;
+  };
 }
 
-interface OrgInfo {
-  name: string;
-  logo?: string;
+interface CareerPage {
+  id: string;
+  title: string;
   description: string;
-  website?: string;
+  logo: string;
+  banner: string;
+  theme: 'light' | 'dark';
 }
 
-export default function CareersOrgPage() {
-  const params = useParams();
-  const orgSlug = params.orgSlug as string;
-
-  const [org, setOrg] = useState<OrgInfo | null>(null);
-  const [jobs, setJobs] = useState<JobListing[]>([]);
+export default function CareersPage({ params }: { params: { orgSlug: string } }) {
+  const [careerPage, setCareerPage] = useState<CareerPage | null>(null);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [deptFilter, setDeptFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [selectedLocation, setSelectedLocation] = useState('all');
+  const [selectedType, setSelectedType] = useState('all');
+  const [selectedWorkMode, setSelectedWorkMode] = useState('all');
 
   useEffect(() => {
-    const fetchCareers = async () => {
+    const fetchCareerData = async () => {
       try {
-        const res = await fetch(`/api/careers/${orgSlug}`);
-        if (!res.ok) throw new Error('Company not found');
-        const data = await res.json();
-        setOrg(data.organization);
-        setJobs(data.jobs || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load');
+        const response = await fetch(`/api/careers/${params.orgSlug}`);
+        const data = await response.json();
+        setCareerPage(data.careerPage);
+        setJobs(data.jobs);
+        setFilteredJobs(data.jobs);
+      } catch (error) {
+        console.error('Failed to fetch career data:', error);
       } finally {
         setLoading(false);
       }
     };
-    fetchCareers();
-  }, [orgSlug]);
 
-  const departments = [...new Set(jobs.map((j) => j.department))].sort();
+    fetchCareerData();
+  }, [params.orgSlug]);
 
-  const filteredJobs = jobs.filter((job) => {
-    const matchesSearch =
-      job.title.toLowerCase().includes(search.toLowerCase()) ||
-      job.department.toLowerCase().includes(search.toLowerCase());
-    const matchesDept = deptFilter === 'all' || job.department === deptFilter;
-    return matchesSearch && matchesDept;
-  });
+  useEffect(() => {
+    const filtered = jobs.filter((job) => {
+      const matchesSearch =
+        job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.department.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesDepartment =
+        selectedDepartment === 'all' || job.department === selectedDepartment;
+      const matchesLocation =
+        selectedLocation === 'all' || job.location === selectedLocation;
+      const matchesType = selectedType === 'all' || job.type === selectedType;
+      const matchesWorkMode =
+        selectedWorkMode === 'all' || job.workMode === selectedWorkMode;
+
+      return (
+        matchesSearch &&
+        matchesDepartment &&
+        matchesLocation &&
+        matchesType &&
+        matchesWorkMode
+      );
+    });
+
+    setFilteredJobs(filtered);
+  }, [searchTerm, selectedDepartment, selectedLocation, selectedType, selectedWorkMode, jobs]);
+
+  const departments = Array.from(new Set(jobs.map((j) => j.department)));
+  const locations = Array.from(new Set(jobs.map((j) => j.location)));
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading career opportunities...</p>
+        </div>
       </div>
     );
   }
 
-  if (error || !org) {
+  if (!careerPage) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center p-6">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Page Not Found</h1>
-          <p className="text-slate-500">{error || 'This careers page does not exist.'}</p>
+          <h1 className="text-2xl font-bold mb-2">Career Page Not Found</h1>
+          <p className="text-gray-600">The requested organization's career page does not exist.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950">
-      {/* Hero */}
-      <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
-        <div className="max-w-5xl mx-auto px-6 py-16">
-          <div className="flex items-center gap-4 mb-6">
-            {org.logo ? (
-              <img src={org.logo} alt={org.name} className="w-16 h-16 rounded-xl bg-white p-2" />
-            ) : (
-              <div className="w-16 h-16 rounded-xl bg-white/20 flex items-center justify-center">
-                <Building2 className="w-8 h-8" />
+    <div className="min-h-screen bg-white">
+      {/* Hero Section */}
+      <section className={`relative ${careerPage.theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>
+        <div className="absolute inset-0 overflow-hidden">
+          {careerPage.banner && (
+            <Image
+              src={careerPage.banner}
+              alt="Career banner"
+              fill
+              className="object-cover opacity-20"
+            />
+          )}
+        </div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+          <div className="flex items-start gap-6 mb-8">
+            {careerPage.logo && (
+              <div className="relative w-24 h-24 flex-shrink-0">
+                <Image
+                  src={careerPage.logo}
+                  alt={careerPage.title}
+                  fill
+                  className="object-contain"
+                />
               </div>
             )}
             <div>
-              <h1 className="text-3xl font-bold">{org.name}</h1>
-              <p className="text-blue-100 mt-1">Careers</p>
+              <h1 className="text-4xl sm:text-5xl font-bold mb-4">{careerPage.title}</h1>
+              <p className={`text-lg ${careerPage.theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                {careerPage.description}
+              </p>
             </div>
           </div>
-          <p className="text-blue-100 max-w-2xl leading-relaxed">{org.description}</p>
         </div>
-      </div>
+      </section>
 
-      {/* Search & Filters */}
-      <div className="max-w-5xl mx-auto px-6 -mt-6">
-        <Card className="p-4 bg-white dark:bg-slate-900 shadow-lg">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Search positions..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        {/* Filters Section */}
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold mb-6">Find Your Next Opportunity</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            {/* Search */}
+            <div className="lg:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Input
+                  type="text"
+                  placeholder="Search jobs..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-            {departments.length > 1 && (
-              <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white"
-              >
-                <option value="all">All Departments</option>
+
+            {/* Department */}
+            <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+              <SelectTrigger>
+                <SelectValue placeholder="Department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
                 {departments.map((dept) => (
-                  <option key={dept} value={dept}>{dept}</option>
+                  <SelectItem key={dept} value={dept}>
+                    {dept}
+                  </SelectItem>
                 ))}
-              </select>
-            )}
+              </SelectContent>
+            </Select>
+
+            {/* Location */}
+            <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+              <SelectTrigger>
+                <SelectValue placeholder="Location" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Locations</SelectItem>
+                {locations.map((loc) => (
+                  <SelectItem key={loc} value={loc}>
+                    {loc}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </Card>
-      </div>
 
-      {/* Job Listings */}
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        <p className="text-sm text-slate-500 mb-6">
-          {filteredJobs.length} open position{filteredJobs.length !== 1 ? 's' : ''}
-        </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Job Type */}
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Job Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="full-time">Full-time</SelectItem>
+                <SelectItem value="part-time">Part-time</SelectItem>
+                <SelectItem value="contract">Contract</SelectItem>
+              </SelectContent>
+            </Select>
 
-        {filteredJobs.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Briefcase className="w-10 h-10 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-600 dark:text-slate-400 font-medium">No positions found</p>
-            <p className="text-sm text-slate-500 mt-1">Try adjusting your search or check back later.</p>
-          </Card>
-        ) : (
-          <div className="space-y-3">
+            {/* Work Mode */}
+            <Select value={selectedWorkMode} onValueChange={setSelectedWorkMode}>
+              <SelectTrigger>
+                <SelectValue placeholder="Work Mode" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Modes</SelectItem>
+                <SelectItem value="remote">Remote</SelectItem>
+                <SelectItem value="hybrid">Hybrid</SelectItem>
+                <SelectItem value="on-site">On-site</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Results count */}
+            <div className="flex items-center text-sm text-gray-600">
+              Showing {filteredJobs.length} of {jobs.length} positions
+            </div>
+          </div>
+        </div>
+
+        {/* Jobs List */}
+        {filteredJobs.length > 0 ? (
+          <div className="grid gap-4">
             {filteredJobs.map((job) => (
-              <Link key={job.id} href={`/careers/${orgSlug}/${job.slug}`}>
-                <Card className="p-5 bg-white dark:bg-slate-900 hover:shadow-md transition-shadow cursor-pointer border border-slate-200 dark:border-slate-800">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <h3 className="font-semibold text-slate-900 dark:text-white text-lg">{job.title}</h3>
-                      <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-slate-500">
-                        <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" />{job.department}</span>
-                        <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{job.location}</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{job.type}</span>
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="self-start">{job.type}</Badge>
-                  </div>
-                </Card>
-              </Link>
+              <JobCard key={job.id} job={job} orgSlug={params.orgSlug} />
             ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No positions found</h3>
+            <p className="text-gray-600 mb-4">
+              Try adjusting your filters to see more opportunities.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedDepartment('all');
+                setSelectedLocation('all');
+                setSelectedType('all');
+                setSelectedWorkMode('all');
+              }}
+            >
+              Clear Filters
+            </Button>
           </div>
         )}
       </div>
 
-      {/* Footer */}
-      <div className="border-t border-slate-200 dark:border-slate-800 mt-12">
-        <div className="max-w-5xl mx-auto px-6 py-8 text-center text-sm text-slate-500">
-          Powered by AutoHire
+      {/* Footer CTA */}
+      <section className="bg-gradient-to-r from-primary/10 to-primary/5 py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold mb-4">Don't see your fit?</h2>
+          <p className="text-gray-600 mb-8">
+            Send us your resume and let's explore how you can grow with us.
+          </p>
+          <Button size="lg">Get in Touch</Button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

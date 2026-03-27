@@ -1,8 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { Clock, Users, FileText } from 'lucide-react';
+import { MoreVertical, Edit, BarChart3, Copy } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Assessment {
   id: string;
@@ -12,70 +20,106 @@ interface Assessment {
   usage_count: number;
   status: 'draft' | 'active' | 'archived';
   duration: number;
-  created_at: string;
-  updated_at: string;
 }
 
-interface AssessmentCardProps {
-  assessment: Assessment;
-}
-
-const typeBadge: Record<string, string> = {
-  SKILL: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
-  PSYCHOMETRIC: 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400',
-  ATTITUDE: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-  BACKGROUND: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+const TYPE_CONFIG = {
+  SKILL: { emoji: '🎯', color: 'bg-red-100 text-red-800' },
+  PSYCHOMETRIC: { emoji: '🧠', color: 'bg-purple-100 text-purple-800' },
+  ATTITUDE: { emoji: '⭐', color: 'bg-yellow-100 text-yellow-800' },
+  BACKGROUND: { emoji: '✓', color: 'bg-green-100 text-green-800' },
 };
 
-const statusBadge: Record<string, string> = {
-  active: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-  draft: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-  archived: 'bg-muted text-muted-foreground',
-};
+export default function AssessmentCard({ assessment }: { assessment: Assessment }) {
+  const config = TYPE_CONFIG[assessment.type];
 
-export default function AssessmentCard({ assessment }: AssessmentCardProps) {
+  const statusColors = {
+    active: 'bg-green-100 text-green-800 border-green-300',
+    draft: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    archived: 'bg-slate-100 text-slate-800 border-slate-300',
+  };
+
   return (
-    <div className="rounded-xl border border-border bg-card p-5 hover:shadow-elevation-1 transition-all group">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex gap-2">
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${typeBadge[assessment.type] || 'bg-muted text-muted-foreground'}`}>
-            {assessment.type.replace('_', ' ')}
-          </span>
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusBadge[assessment.status] || 'bg-muted text-muted-foreground'}`}>
-            {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1)}
-          </span>
+    <Card className="hover:shadow-lg transition-shadow h-full flex flex-col">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex gap-3 flex-1 min-w-0">
+            <div className={`text-2xl flex-shrink-0`}>{config.emoji}</div>
+            <div className="min-w-0 flex-1">
+              <Link href={`/assessments/${assessment.id}`}>
+                <CardTitle className="text-lg hover:text-blue-600 truncate">
+                  {assessment.title}
+                </CardTitle>
+              </Link>
+              <CardDescription className="text-sm mt-1">
+                {assessment.question_count} questions • {assessment.duration} min
+              </CardDescription>
+            </div>
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/assessments/${assessment.id}/edit`}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/assessments/${assessment.id}/results`}>
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  View Results
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <button className="w-full">
+                  <Copy className="w-4 h-4 mr-2" />
+                  Duplicate
+                </button>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
+      </CardHeader>
 
-      <Link href={`/assessments/${assessment.id}`}>
-        <h3 className="text-[15px] font-semibold text-foreground mb-2 group-hover:text-primary transition-colors line-clamp-1">
-          {assessment.title}
-        </h3>
-      </Link>
+      <CardContent className="flex-1 flex flex-col">
+        <div className="space-y-3 flex-1">
+          <div className="flex items-center gap-2">
+            <Badge className={config.color}>
+              {assessment.type.replace('_', ' ')}
+            </Badge>
+            <Badge variant="outline" className={statusColors[assessment.status]}>
+              {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1)}
+            </Badge>
+          </div>
+        </div>
 
-      <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-4">
-        <span className="inline-flex items-center gap-1">
-          <FileText className="w-3 h-3" />
-          {assessment.question_count} questions
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          {assessment.duration} min
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Users className="w-3 h-3" />
-          {assessment.usage_count} used
-        </span>
-      </div>
+        {/* Stats */}
+        <div className="pt-4 border-t space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Candidates Assessed</span>
+            <span className="font-semibold text-slate-900">{assessment.usage_count}</span>
+          </div>
+        </div>
 
-      <div className="flex gap-1.5">
-        <Link href={`/assessments/${assessment.id}/edit`}>
-          <Button variant="outline" size="sm" className="h-7 text-xs">Edit</Button>
-        </Link>
-        <Link href={`/assessments/${assessment.id}/results`}>
-          <Button variant="outline" size="sm" className="h-7 text-xs">Results</Button>
-        </Link>
-      </div>
-    </div>
+        {/* Actions */}
+        <div className="flex gap-2 mt-4 pt-4 border-t">
+          <Link href={`/assessments/${assessment.id}`} className="flex-1">
+            <Button variant="outline" size="sm" className="w-full">
+              View
+            </Button>
+          </Link>
+          <Link href={`/assessments/${assessment.id}/edit`} className="flex-1">
+            <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700">
+              Edit
+            </Button>
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

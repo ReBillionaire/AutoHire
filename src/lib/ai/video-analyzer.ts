@@ -1,176 +1,375 @@
-import type { VideoAnalysisResult, ResponseQuality, AIServiceResponse } from '@/types/ai';
+/**
+ * Video/Transcript Analyzer - Analyzes candidate communication from video transcripts
+ * Uses OpenAI GPT-4 for detailed behavioral and communication assessment
+ */
 
-const VIDEO_ANALYSIS_PROMPT = `You are an expert interview coach analyzing a video interview transcript. Evaluate the candidate's communication skills, response quality, and overall impression.
+import { openai } from '../ai-clients';
+import {
+  VideoAnalysis,
+  VideoAnalysisMetrics,
+  KeyQuote,
+  AIAnalysisError,
+} from '@/types/ai';
 
-Return a JSON object with:
-- transcription: the full transcript text
-- duration: estimated duration in seconds
-- sentimentAnalysis: { overall, confidence, segments }
-- communicationScore: 0-100 score for communication ability
-- keyTopics: array of main topics discussed
-- responseQuality: array of per-question quality scores
-- overallImpression: summary assessment
-- flags: array of notable observations (positive or negative)`;
+const VIDEO_ANALYSIS_PROMPT = `You are an expert communication coach and HR interviewer with 15+ years of experience evaluating candidates through video interviews. Analyze the provided transcript to assess the candidate's communication effectiveness.
+
+Score each dimension on a 0-100 scale:
+1. Communication: Clarity of expression, articulation, grammatical accuracy
+2. Confidence: Conviction in responses, minimal hedging, steady tone
+3. Enthusiasm: Passion for the role/company, energy level, engagement
+4. Professionalism: Appropriate tone, respect, business etiquette
+5. Clarity: Directness of answers, absence of rambling, focus
+6. Pacing: Speaking speed, appropriate pauses, rhythm
+7. Body Language: Posture, gestures, movement (if visible in transcript)
+8. Eye Contact: Direct engagement with camera (if visible in transcript)
+
+Also calculate:
+1. Overall score (weighted average of above)
+2. Speaking pace assessment
+3. Vocabulary level assessment
+4. Emotional intelligence score
+5. Count filler words (um, uh, like, you know, etc.)
+6. Identify key quotes that reveal strengths or weaknesses
+7. Provide actionable recommendations
+
+Return ONLY valid JSON with no additional text or markdown code blocks:
+
+{
+  "metrics": {
+    "communication": number,
+    "confidence": number,
+    "enthusiasm": number,
+    "professionalism": number,
+    "clarity": number,
+    "pacing": number,
+    "bodyLanguage": number,
+    "eyeContact": number
+  },
+  "overallScore": number,
+  "summary": "string (2-3 sentences capturing overall impression)",
+  "strengths": ["string", "string", "string", "string"],
+  "areasForImprovement": ["string", "string", "string"],
+  "keyQuotes": [
+    {
+      "quote": "string (actual quote from transcript)",
+      "significance": "string (why this quote matters)",
+      "metric": "string (which metric it relates to)"
+    }
+  ],
+  "recommendations": ["string (actionable feedback)"],
+  "speakingPace": "string (slow/moderate/fast)",
+  "vocabularyLevel": "string (basic/conversational/advanced/technical)",
+  "emotionalIntelligence": number,
+  "umCount": number,
+  "fillerWords": {
+    "um": number,
+    "uh": number,
+    "like": number,
+    "you know": number,
+    "actually": number,
+    "basically": number
+  }
+}`;
 
 /**
- * Analyze a video interview from its transcript
+ * Extract JSON from response that might be wrapped in markdown
  */
-export async function analyzeVideoInterview(params: {
-  transcript: string;
-  questions?: string[];
-  duration?: number;
-}): Promise<AIServiceResponse<VideoAnalysisResult>> {
-  const startTime = Date.now();
+function extractJSON(response: string): string {
+  let cleaned = response.trim();
+
+  const jsonMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    cleaned = jsonMatch[1].trim();
+  }
+
+  return cleaned;
+}
+
+/**
+ * Count occurrences of filler words in transcript
+ */
+function countFillerWords(transcript: string): Record<string, number> {
+  const fillers: Record<string, number> = {
+    um: 0,
+    uh: 0,
+    like: 0,
+    'you know': 0,
+    actually: 0,
+    basically: 0,
+  };
+
+  const lowerTranscript = transcript.toLowerCase();
+  const words = lowerTranscript.split(/\s+/);
+
+  for (const word of words) {
+    if (word === 'um' || word === 'um,') fillers.um++;
+    if (word === 'uh' || word === 'uh,') fillers.uh++;
+    if (word === 'like' || word === 'like,') fillers.like++;
+    if (word === 'actually' || word === 'actually,') fillers.actually++;
+    if (word === 'basically' || word === 'basically,') fillers.basically++;
+  }
+
+  // Check for "you know" phrase
+  fillers['you know'] = (lowerTranscript.match(/you\s+know/g) || []).length;
+
+  return fillers;
+}
+
+/**
+ * Calculate word count from transcript
+ */
+function calculateWordCount(transcript: string): number {
+  return transcript.trim().split(/\s+/).length;
+}
+
+/**
+ * Validate and normalize video analysis
+ */
+function validateAndNormalizeAnalysis(
+  data: any,
+  wordCount: number,
+  fillerWordCounts: Record<string, number>
+): VideoAnalysis {
+  const metrics: VideoAnalysisMetrics = {
+    communication: Math.min(100, Math.max(0, Number(data.metrics?.communication) || 0)),
+    confidence: Math.min(100, Math.max(0, Number(data.metrics?.confidence) || 0)),
+    enthusiasm: Math.min(100, Math.max(0, Number(data.metrics?.enthusiasm) || 0)),
+    professionalism: Math.min(100, Math.max(0, Number(data.metrics?.professionalism) || 0)),
+    clarity: Math.min(100, Math.max(0, Number(data.metrics?.clarity) || 0)),
+    pacing: Math.min(100, Math.max(0, Number(data.metrics?.pacing) || 0)),
+    bodyLanguage: Math.min(100, Math.max(0, Number(data.metrics?.bodyLanguage) || 0)),
+    eyeContact: Math.min(100, Math.max(0, Number(data.metrics?.eyeContact) || 0)),
+  };
+
+  const keyQuotes: KeyQuote[] = Array.isArray(data.keyQuotes)
+    ? data.keyQuotes
+        .slice(0, 5)
+        .map((kq: any) => ({
+          quote: kq.quote || '',
+          timestamp: kq.timestamp,
+          significance: kq.significance || '',
+          metric: kq.metric || 'communication',
+        }))
+    : [];
+
+  return {
+    metrics,
+    overallScore: Math.min(100, Math.max(0, Number(data.overallScore) || 0)),
+    summary: data.summary || 'Assessment summary not available',
+    strengths: Array.isArray(data.strengths) ? data.strengths.slice(0, 5) : [],
+    areasForImprovement: Array.isArray(data.areasForImprovement)
+      ? data.areasForImprovement.slice(0, 5)
+      : [],
+    keyQuotes,
+    recommendations: Array.isArray(data.recommendations) ? data.recommendations.slice(0, 5) : [],
+    speakingPace: data.speakingPace || 'moderate',
+    vocabularyLevel: data.vocabularyLevel || 'conversational',
+    emotionalIntelligence: Math.min(100, Math.max(0, Number(data.emotionalIntelligence) || 0)),
+    transcriptLength: wordCount,
+    umCount: fillerWordCounts.um || 0,
+    filler_words: fillerWordCounts,
+  };
+}
+
+/**
+ * Analyze video transcript for communication effectiveness
+ * @param transcript - The transcript text from the video
+ * @param jobDescription - The job description for context
+ * @param videoUrl - Optional URL to the video
+ * @param duration - Optional video duration in seconds
+ * @returns Detailed video analysis
+ */
+export async function analyzeVideoTranscript(
+  transcript: string,
+  jobDescription: string,
+  videoUrl?: string,
+  duration?: number
+): Promise<VideoAnalysis> {
+  if (!transcript || !transcript.trim()) {
+    throw new AIAnalysisError('INVALID_INPUT', 'Transcript cannot be empty');
+  }
+
+  if (!jobDescription || !jobDescription.trim()) {
+    throw new AIAnalysisError('INVALID_INPUT', 'Job description cannot be empty');
+  }
+
+  const wordCount = calculateWordCount(transcript);
+  const fillerWords = countFillerWords(transcript);
 
   try {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return {
-        success: true,
-        data: generateFallbackAnalysis(params),
-        processingTime: Date.now() - startTime,
-      };
-    }
-
-    const contextParts = [`Transcript:\n${params.transcript}`];
-    if (params.questions) {
-      contextParts.push(`Questions asked:\n${params.questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`);
-    }
-    if (params.duration) {
-      contextParts.push(`Duration: ${params.duration} seconds`);
-    }
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        temperature: 0.3,
-        max_tokens: 3072,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: VIDEO_ANALYSIS_PROMPT },
-          { role: 'user', content: contextParts.join('\n\n') },
-        ],
-      }),
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        {
+          role: 'system',
+          content: VIDEO_ANALYSIS_PROMPT,
+        },
+        {
+          role: 'user',
+          content: `JOB DESCRIPTION:\n${jobDescription}\n\nVIDEO TRANSCRIPT:\n${transcript}${
+            duration ? `\n\nVideo Duration: ${duration} seconds` : ''
+          }`,
+        },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.3,
+      max_tokens: 2000,
     });
 
-    if (!response.ok) {
-      return {
-        success: false,
-        error: `OpenAI API error: ${response.status}`,
-        processingTime: Date.now() - startTime,
-      };
+    const content = response.choices[0]?.message.content;
+    if (!content) {
+      throw new AIAnalysisError('API_ERROR', 'No response from OpenAI');
     }
 
-    const data = await response.json();
-    const result = JSON.parse(data.choices[0].message.content) as VideoAnalysisResult;
+    const cleaned = extractJSON(content);
+    const parsed = JSON.parse(cleaned);
+    const validated = validateAndNormalizeAnalysis(parsed, wordCount, fillerWords);
 
-    return {
-      success: true,
-      data: result,
-      usage: {
-        promptTokens: data.usage?.prompt_tokens || 0,
-        completionTokens: data.usage?.completion_tokens || 0,
-        totalTokens: data.usage?.total_tokens || 0,
-      },
-      processingTime: Date.now() - startTime,
-    };
+    return validated;
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to analyze video interview',
-      processingTime: Date.now() - startTime,
-    };
+    if (error instanceof AIAnalysisError) {
+      throw error;
+    }
+
+    if (error instanceof SyntaxError) {
+      throw new AIAnalysisError(
+        'PARSING_ERROR',
+        'Failed to parse OpenAI response as JSON',
+        error.message
+      );
+    }
+
+    throw new AIAnalysisError(
+      'API_ERROR',
+      'Failed to analyze video transcript',
+      error instanceof Error ? error.message : String(error)
+    );
   }
 }
 
 /**
- * Generate a basic analysis when AI is not available
+ * Score specific communication aspects without full analysis
  */
-function generateFallbackAnalysis(params: {
-  transcript: string;
-  questions?: string[];
-  duration?: number;
-}): VideoAnalysisResult {
-  const words = params.transcript.split(/\s+/);
-  const wordCount = words.length;
-  const sentences = params.transcript.split(/[.!?]+/).filter(Boolean);
-  const avgSentenceLength = wordCount / Math.max(sentences.length, 1);
+export async function scoreSpecificMetrics(
+  transcript: string,
+  metricsToScore: Array<
+    'communication' | 'confidence' | 'enthusiasm' | 'professionalism' | 'clarity' | 'pacing'
+  >
+): Promise<Record<string, number>> {
+  if (!transcript || !transcript.trim()) {
+    throw new AIAnalysisError('INVALID_INPUT', 'Transcript cannot be empty');
+  }
 
-  // Estimate duration from word count (avg speaking rate: 130 wpm)
-  const estimatedDuration = params.duration || Math.round((wordCount / 130) * 60);
+  if (!metricsToScore || metricsToScore.length === 0) {
+    throw new AIAnalysisError('INVALID_INPUT', 'Must specify at least one metric to score');
+  }
 
-  // Simple keyword-based topic extraction
-  const topicKeywords: Record<string, string[]> = {
-    'Technical Skills': ['code', 'programming', 'software', 'system', 'architecture', 'database', 'api'],
-    'Leadership': ['team', 'lead', 'manage', 'mentor', 'guide', 'delegate'],
-    'Problem Solving': ['problem', 'solve', 'challenge', 'solution', 'approach', 'debug'],
-    'Communication': ['communicate', 'present', 'explain', 'collaborate', 'discuss'],
-    'Growth': ['learn', 'grow', 'improve', 'develop', 'skill', 'career'],
-  };
-
-  const lowerTranscript = params.transcript.toLowerCase();
-  const keyTopics = Object.entries(topicKeywords)
-    .filter(([, keywords]) => keywords.some((kw) => lowerTranscript.includes(kw)))
-    .map(([topic]) => topic);
-
-  if (keyTopics.length === 0) keyTopics.push('General Discussion');
-
-  // Basic communication score based on response metrics
-  let communicationScore = 60; // baseline
-  if (avgSentenceLength >= 10 && avgSentenceLength <= 25) communicationScore += 15;
-  if (wordCount >= 200) communicationScore += 10;
-  if (sentences.length >= 10) communicationScore += 5;
-  communicationScore = Math.min(communicationScore, 95);
-
-  // Generate per-question quality if questions provided
-  const responseQuality: ResponseQuality[] = params.questions
-    ? params.questions.map((_, i) => ({
-        questionIndex: i,
-        clarity: Math.round(60 + Math.random() * 30),
-        relevance: Math.round(60 + Math.random() * 30),
-        depth: Math.round(50 + Math.random() * 35),
-        overallQuality: Math.round(55 + Math.random() * 35),
-        notes: 'Automated analysis — review transcript for detailed assessment',
-      }))
-    : [{
-        questionIndex: 0,
-        clarity: communicationScore,
-        relevance: communicationScore,
-        depth: Math.round(communicationScore * 0.9),
-        overallQuality: communicationScore,
-        notes: 'Overall transcript quality assessment',
-      }];
-
-  return {
-    transcription: params.transcript,
-    duration: estimatedDuration,
-    sentimentAnalysis: {
-      overall: 'neutral',
-      confidence: 0.5,
-      segments: [
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
         {
-          startTime: 0,
-          endTime: estimatedDuration,
-          sentiment: 'neutral',
-          text: params.transcript.slice(0, 200) + '...',
+          role: 'system',
+          content: `Score the following communication metrics on a 0-100 scale based on the transcript:
+${metricsToScore.map((m) => `- ${m}: [description]`).join('\n')}
+
+Return ONLY valid JSON with the scores:
+{
+  "${metricsToScore.join('": number,\n  "')}": number
+}`,
+        },
+        {
+          role: 'user',
+          content: transcript,
         },
       ],
-    },
-    communicationScore,
-    keyTopics,
-    responseQuality,
-    overallImpression: `Candidate provided a ${wordCount}-word response over approximately ${Math.round(estimatedDuration / 60)} minutes. ${
-      communicationScore >= 75
-        ? 'Communication appears clear and well-structured.'
-        : communicationScore >= 55
-          ? 'Communication is adequate with room for improvement.'
-          : 'Communication may need further evaluation.'
-    } Topics covered include ${keyTopics.join(', ')}.`,
-    flags: [],
-  };
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+      max_tokens: 300,
+    });
+
+    const content = response.choices[0]?.message.content;
+    if (!content) {
+      throw new AIAnalysisError('API_ERROR', 'No response from OpenAI');
+    }
+
+    const cleaned = extractJSON(content);
+    const parsed = JSON.parse(cleaned);
+
+    const scores: Record<string, number> = {};
+    for (const metric of metricsToScore) {
+      scores[metric] = Math.min(100, Math.max(0, Number(parsed[metric]) || 0));
+    }
+
+    return scores;
+  } catch (error) {
+    if (error instanceof AIAnalysisError) {
+      throw error;
+    }
+
+    throw new AIAnalysisError(
+      'METRIC_SCORING_ERROR',
+      'Failed to score specific metrics',
+      error instanceof Error ? error.message : String(error)
+    );
+  }
+}
+
+/**
+ * Generate targeted feedback for specific areas
+ */
+export async function generateTargetedFeedback(
+  transcript: string,
+  focusAreas: string[]
+): Promise<Record<string, string>> {
+  if (!transcript || !transcript.trim()) {
+    throw new AIAnalysisError('INVALID_INPUT', 'Transcript cannot be empty');
+  }
+
+  if (!focusAreas || focusAreas.length === 0) {
+    throw new AIAnalysisError('INVALID_INPUT', 'Must specify at least one focus area');
+  }
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        {
+          role: 'system',
+          content: `Provide specific, actionable feedback on these areas based on the transcript:
+${focusAreas.map((area) => `- ${area}`).join('\n')}
+
+Return ONLY valid JSON with feedback for each area:
+{
+  "${focusAreas.join('": "specific feedback",\n  "')}": "specific feedback"
+}`,
+        },
+        {
+          role: 'user',
+          content: transcript,
+        },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.4,
+      max_tokens: 1000,
+    });
+
+    const content = response.choices[0]?.message.content;
+    if (!content) {
+      throw new AIAnalysisError('API_ERROR', 'No response from OpenAI');
+    }
+
+    const cleaned = extractJSON(content);
+    return JSON.parse(cleaned);
+  } catch (error) {
+    if (error instanceof AIAnalysisError) {
+      throw error;
+    }
+
+    throw new AIAnalysisError(
+      'FEEDBACK_GENERATION_ERROR',
+      'Failed to generate targeted feedback',
+      error instanceof Error ? error.message : String(error)
+    );
+  }
 }

@@ -1,66 +1,48 @@
-// AI Module - Barrel Export
-// Central export point for all AI services
+/**
+ * AI Analysis Engine - Export All Public Functions
+ * Central hub for all AI analysis capabilities
+ */
 
-export { analyzeResume } from './resume-analyzer';
-export { analyzeAnswer, scoreAssessment } from './answer-analyzer';
-export { analyzeDISCProfile } from './disc-analyzer';
-export { generateInterviewPrep } from './interview-prep';
-export { generateOutreachEmail, generateOutreachSequence } from './outreach-agent';
-export { calculateOverallScore } from './overall-scorer';
-export { analyzeVideoInterview } from './video-analyzer';
+// Resume Analysis
+export {
+  analyzeResume,
+  scoreResumeQuality,
+  extractAchievements,
+} from './resume-analyzer';
 
-// Re-export all types
-export type {
-  ResumeAnalysisResult,
-  ExperienceEntry,
-  EducationEntry,
-  AnswerAnalysisResult,
-  AssessmentScoringResult,
-  SectionScore,
-  DISCProfile,
-  InterviewPrepResult,
-  InterviewQuestion,
-  ProbePoint,
-  OutreachEmailResult,
-  OutreachCampaign,
-  OverallCandidateScore,
-  ScoringFactor,
-  VideoAnalysisResult,
-  SentimentSegment,
-  ResponseQuality,
-  AIConfig,
-  AIServiceResponse,
-} from '@/types/ai';
+// Video Analysis
+export {
+  analyzeVideoTranscript,
+  scoreSpecificMetrics,
+  generateTargetedFeedback,
+} from './video-analyzer';
 
-// Default AI configuration
-export const DEFAULT_AI_CONFIG = {
-  model: 'gpt-4o-mini',
-  temperature: 0.3,
-  maxTokens: 4096,
-  provider: 'openai' as const,
-};
+// Assessment Answer Analysis
+export {
+  analyzeAssessmentAnswers,
+  quickScoreAnswers,
+  detectSuspiciousActivity,
+} from './answer-analyzer';
 
-// AI service status check
-export async function checkAIServiceHealth(): Promise<{
-  available: boolean;
-  provider: string;
-  latency?: number;
-}> {
-  const start = Date.now();
-  try {
-    // Check if API key is configured
-    const apiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return { available: false, provider: 'none' };
-    }
+// DISC Profile Analysis
+export {
+  analyzeResponses,
+  calculateDISCScores,
+  determinePrimaryProfile,
+  generateDISCReport,
+  generateCompleteDISCProfile,
+} from './disc-analyzer';
 
-    const provider = process.env.OPENAI_API_KEY ? 'openai' : 'anthropic';
-    return {
-      available: true,
-      provider,
-      latency: Date.now() - start,
-    };
-  } catch {
-    return { available: false, provider: 'unknown' };
-  }
-}
+// Overall Scoring
+export {
+  calculateOverallScore,
+  compareMultipleCandidates,
+} from './overall-scorer';
+
+// Interview Preparation
+export {
+  generateInterviewQuestions,
+} from './interview-prep';
+
+// AI Clients
+export { openai, anthropic } from '../ai-clients';

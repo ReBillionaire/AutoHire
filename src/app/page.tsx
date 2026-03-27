@@ -151,7 +151,7 @@ export default function HomePage() {
             {/* Subheadline */}
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed animate-fade-in-up stagger-2">
               Screen candidates with AI, run structured assessments, and make confident
-              hiring decisions â all from one beautiful platform.
+              hiring decisions — all from one beautiful platform.
             </p>
 
             {/* CTAs */}

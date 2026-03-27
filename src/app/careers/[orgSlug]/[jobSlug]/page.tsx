@@ -1,179 +1,327 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import { ArrowLeft, MapPin, Clock, Briefcase, DollarSign, Building2, Loader2, Share2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { Share2, ArrowLeft, MapPin, Briefcase, DollarSign, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 
-interface JobDetail {
+interface Job {
   id: string;
   title: string;
   department: string;
   location: string;
-  type: string;
-  salaryMin?: number;
-  salaryMax?: number;
   description: string;
   requirements: string[];
+  responsibilities: string[];
+  qualifications: string[];
   benefits: string[];
+  type: 'full-time' | 'part-time' | 'contract';
+  workMode: 'remote' | 'hybrid' | 'on-site';
+  experienceLevel: string;
+  salary?: {
+    min: number;
+    max: number;
+    currency: string;
+  };
+  skills: string[];
   postedAt: string;
-  orgName: string;
 }
 
-export default function CareerJobPage() {
-  const params = useParams();
-  const orgSlug = params.orgSlug as string;
-  const jobSlug = params.jobSlug as string;
+interface Organization {
+  id: string;
+  name: string;
+  description: string;
+  logo: string;
+  website?: string;
+  size?: string;
+}
 
-  const [job, setJob] = useState<JobDetail | null>(null);
+export default function JobPage({
+  params,
+}: {
+  params: { orgSlug: string; jobSlug: string };
+}) {
+  const [job, setJob] = useState<Job | null>(null);
+  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [similarJobs, setSimilarJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchJob = async () => {
+    const fetchJobData = async () => {
       try {
-        const res = await fetch(`/api/careers/${orgSlug}/${jobSlug}`);
-        if (!res.ok) throw new Error('Job not found');
-        const data = await res.json();
-        setJob(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load');
+        const response = await fetch(
+          `/api/careers/${params.orgSlug}/${params.jobSlug}`
+        );
+        const data = await response.json();
+        setJob(data.job);
+        setOrganization(data.organization);
+        setSimilarJobs(data.similarJobs);
+      } catch (error) {
+        console.error('Failed to fetch job data:', error);
       } finally {
         setLoading(false);
       }
     };
-    fetchJob();
-  }, [orgSlug, jobSlug]);
+
+    fetchJobData();
+  }, [params.orgSlug, params.jobSlug]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
-  if (error || !job) {
+  if (!job) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center p-6">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <Briefcase className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Job Not Found</h1>
-          <p className="text-slate-500 mb-6">{error || 'This position may have been filled or removed.'}</p>
-          <Link href={`/careers/${orgSlug}`}>
-            <Button variant="outline">View All Positions</Button>
+          <h1 className="text-2xl font-bold mb-2">Job Not Found</h1>
+          <Link href={`/careers/${params.orgSlug}`}>
+            <Button variant="outline">Back to Career Page</Button>
           </Link>
         </div>
       </div>
     );
   }
 
-  const formatSalary = (min?: number, max?: number) => {
-    if (!min && !max) return null;
-    const fmt = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(0)}k` : `$${n}`;
-    if (min && max) return `${fmt(min)} - ${fmt(max)}`;
-    if (min) return `From ${fmt(min)}`;
-    return `Up to ${fmt(max!)}`;
-  };
-
-  const salary = formatSalary(job.salaryMin, job.salaryMax);
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-4xl mx-auto px-6 py-6">
-          <Link href={`/careers/${orgSlug}`} className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 mb-4">
-            <ArrowLeft className="w-4 h-4" />
-            Back to all positions
+      <div className="bg-white border-b border-border shadow-elevation-1">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Link
+            href={`/careers/${params.orgSlug}`}
+            className="inline-flex items-center text-primary hover:text-primary/80 transition-colors mb-6"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Careers
           </Link>
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{job.title}</h1>
-              <p className="text-slate-600 dark:text-slate-400 mt-1">{job.orgName}</p>
-              <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-slate-500">
-                <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />{job.location}</span>
-                <span className="flex items-center gap-1"><Briefcase className="w-4 h-4" />{job.department}</span>
-                <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{job.type}</span>
-                {salary && <span className="flex items-center gap-1"><DollarSign className="w-4 h-4" />{salary}</span>}
+          <h1 className="text-4xl font-bold text-foreground mb-4">{job.title}</h1>
+          <div className="flex flex-wrap gap-6">
+            <div className="flex items-center text-muted-foreground">
+              <Briefcase className="w-5 h-5 mr-2" />
+              {job.department}
+            </div>
+            <div className="flex items-center text-muted-foreground">
+              <MapPin className="w-5 h-5 mr-2" />
+              {job.location}
+            </div>
+            <div className="flex items-center text-muted-foreground">
+              <Clock className="w-5 h-5 mr-2" />
+              {job.type.replace('-', ' ')} • {job.workMode}
+            </div>
+            {job.salary && (
+              <div className="flex items-center text-muted-foreground">
+                <DollarSign className="w-5 h-5 mr-2" />
+                {job.salary.currency} {job.salary.min.toLocaleString()} -{' '}
+                {job.salary.max.toLocaleString()}
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Link href={`/careers/${orgSlug}/${jobSlug}/apply`}>
-                <Button size="lg">Apply Now</Button>
-              </Link>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-4xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-8">
-          <section>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">About the Role</h2>
-            <div className="prose prose-slate dark:prose-invert max-w-none text-sm leading-relaxed">
-              <p className="whitespace-pre-wrap">{job.description}</p>
-            </div>
-          </section>
-
-          {job.requirements.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Requirements</h2>
-              <ul className="space-y-2">
-                {job.requirements.map((req, i) => (
-                  <li key={i} className="flex gap-3 text-sm text-slate-700 dark:text-slate-300">
-                    <span className="text-blue-500 flex-shrink-0 mt-1">•</span>
-                    <span>{req}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {job.benefits.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Benefits</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {job.benefits.map((benefit, i) => (
-                  <div key={i} className="flex gap-2 items-start p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                    <span className="text-green-600 flex-shrink-0">✓</span>
-                    <span className="text-sm text-slate-700 dark:text-slate-300">{benefit}</span>
-                  </div>
-                ))}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          {/* Main Content */}
+          <div className="lg:col-span-2">
+            {/* Overview */}
+            <section className="mb-12">
+              <h2 className="text-2xl font-bold text-foreground mb-6">About This Role</h2>
+              <div className="prose prose-sm max-w-none">
+                <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{job.description}</p>
               </div>
             </section>
-          )}
-        </div>
 
-        {/* Sidebar */}
-        <div className="space-y-4">
-          <Card className="p-6 bg-white dark:bg-slate-900">
-            <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Job Details</h3>
-            <div className="space-y-3 text-sm">
-              <div><p className="text-slate-500">Department</p><p className="font-medium text-slate-900 dark:text-white">{job.department}</p></div>
-              <div><p className="text-slate-500">Location</p><p className="font-medium text-slate-900 dark:text-white">{job.location}</p></div>
-              <div><p className="text-slate-500">Type</p><p className="font-medium text-slate-900 dark:text-white">{job.type}</p></div>
-              {salary && <div><p className="text-slate-500">Salary Range</p><p className="font-medium text-slate-900 dark:text-white">{salary}</p></div>}
-              <div><p className="text-slate-500">Posted</p><p className="font-medium text-slate-900 dark:text-white">{new Date(job.postedAt).toLocaleDateString()}</p></div>
+            <Separator className="my-8 bg-border" />
+
+            {/* Responsibilities */}
+            {job.responsibilities.length > 0 && (
+              <section className="mb-12">
+                <h2 className="text-2xl font-bold text-foreground mb-6">Responsibilities</h2>
+                <ul className="space-y-3">
+                  {job.responsibilities.map((item, idx) => (
+                    <li key={idx} className="flex gap-3">
+                      <span className="text-primary font-bold flex-shrink-0">•</span>
+                      <span className="text-muted-foreground">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <Separator className="my-8 bg-border" />
+
+            {/* Requirements */}
+            {job.requirements.length > 0 && (
+              <section className="mb-12">
+                <h2 className="text-2xl font-bold text-foreground mb-6">Requirements</h2>
+                <ul className="space-y-3">
+                  {job.requirements.map((item, idx) => (
+                    <li key={idx} className="flex gap-3">
+                      <span className="text-primary font-bold flex-shrink-0">•</span>
+                      <span className="text-muted-foreground">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <Separator className="my-8 bg-border" />
+
+            {/* Qualifications */}
+            {job.qualifications.length > 0 && (
+              <section className="mb-12">
+                <h2 className="text-2xl font-bold text-foreground mb-6">Qualifications</h2>
+                <ul className="space-y-3">
+                  {job.qualifications.map((item, idx) => (
+                    <li key={idx} className="flex gap-3">
+                      <span className="text-primary font-bold flex-shrink-0">•</span>
+                      <span className="text-muted-foreground">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <Separator className="my-8 bg-border" />
+
+            {/* Benefits */}
+            {job.benefits.length > 0 && (
+              <section className="mb-12">
+                <h2 className="text-2xl font-bold text-foreground mb-6">What We Offer</h2>
+                <ul className="space-y-3">
+                  {job.benefits.map((item, idx) => (
+                    <li key={idx} className="flex gap-3">
+                      <span className="text-green-600 font-bold flex-shrink-0">✓</span>
+                      <span className="text-muted-foreground">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* Skills */}
+            {job.skills.length > 0 && (
+              <section className="mb-12">
+                <h2 className="text-2xl font-bold text-foreground mb-6">Skills</h2>
+                <div className="flex flex-wrap gap-2">
+                  {job.skills.map((skill, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-2 bg-primary/10 text-primary rounded-lg text-sm font-medium hover:bg-primary/20 transition-colors"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            {/* Apply CTA */}
+            <div className="sticky top-6 space-y-6">
+              <div className="bg-card border border-border rounded-xl p-6 shadow-elevation-1">
+                <Link href={`/careers/${params.orgSlug}/${params.jobSlug}/apply`}>
+                  <Button className="w-full" size="lg">
+                    Apply Now
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  className="w-full mt-3"
+                  onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({
+                        title: job.title,
+                        text: `Check out this ${job.title} position at ${organization?.name}`,
+                        url: shareUrl,
+                      });
+                    } else {
+                      navigator.clipboard.writeText(shareUrl);
+                      alert('Link copied to clipboard!');
+                    }
+                  }}
+                >
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Share
+                </Button>
+              </div>
+
+              {/* Company Card */}
+              {organization && (
+                <div className="bg-card border border-border rounded-xl p-6 shadow-elevation-1">
+                  <h3 className="font-bold text-lg text-foreground mb-2">{organization.name}</h3>
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
+                    {organization.description}
+                  </p>
+                  {organization.website && (
+                    <a
+                      href={organization.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary text-sm font-medium hover:underline transition-colors"
+                    >
+                      Visit Website →
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Key Info */}
+              <div className="bg-card border border-border rounded-xl p-6 shadow-elevation-1">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Experience Level</p>
+                    <p className="text-base font-medium capitalize text-foreground mt-2">
+                      {job.experienceLevel}
+                    </p>
+                  </div>
+                  <Separator className="bg-border" />
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Posted</p>
+                    <p className="text-base font-medium text-foreground mt-2">
+                      {new Date(job.postedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-          </Card>
-
-          <Link href={`/careers/${orgSlug}/${jobSlug}/apply`} className="block">
-            <Button className="w-full" size="lg">Apply for this Position</Button>
-          </Link>
+          </div>
         </div>
-      </div>
 
-      {/* Footer */}
-      <div className="border-t border-slate-200 dark:border-slate-800 mt-12">
-        <div className="max-w-4xl mx-auto px-6 py-8 text-center text-sm text-slate-500">
-          Powered by AutoHire
-        </div>
+        {/* Similar Jobs */}
+        {similarJobs.length > 0 && (
+          <section className="mt-20 pt-12 border-t border-border">
+            <h2 className="text-2xl font-bold text-foreground mb-8">Similar Opportunities</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {similarJobs.map((j) => (
+                <Link
+                  key={j.id}
+                  href={`/careers/${params.orgSlug}/${j.id}`}
+                  className="group bg-card border border-border rounded-xl p-6 hover:shadow-elevation-2 hover:border-primary transition-all"
+                >
+                  <h3 className="font-bold text-lg text-foreground mb-2 group-hover:text-primary transition-colors">
+                    {j.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">{j.department}</p>
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <MapPin className="w-4 h-4 mr-1" />
+                    {j.location}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

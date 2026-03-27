@@ -5,7 +5,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("POSTGRES_PRISMA_URL")
-    directUrl = env("POSTGRES_URL_NON_POOLING")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
 // Authentication Models
@@ -74,9 +74,10 @@ model User {
   companies       Company[]
   jobPostings     JobPosting[]
   applications    Application[]
+  interviews      Interview[]
   candidates      Candidate[]
   interviewsAsInterviewer Interview[] @relation("Interviewer")
-  interviewEvaluations InterviewEvaluation[]
+  outreachPosts   OutreachPost[]
 
   @@index([email])
   @@index([role])
@@ -127,6 +128,12 @@ model Company {
   candidates      Candidate[]
   interviews      Interview[]
   team            CompanyMember[]
+  settings        CompanySettings?
+  questionBank    QuestionBank[]
+  assessmentSessions AssessmentSession[]
+  automationRules AutomationRule[]
+  reminders       PipelineReminder[]
+  outreachPosts   OutreachPost[]
 
   @@index([ownerId])
   @@index([slug])
@@ -213,6 +220,8 @@ model JobPosting {
 
   applications    Application[]
   interviews      Interview[]
+  socialSnippets  SocialSnippet[]
+  outreachPosts   OutreachPost[]
 
   @@unique([companyId, slug])
   @@index([companyId])
@@ -263,6 +272,11 @@ model Candidate {
   coverLetter     String?   @db.Text
   portfolio       String?
 
+  // Video intro
+  videoUrl        String?
+  videoGdriveId   String?
+  resumeGdriveId  String?
+
   // AI Analysis
   aiSummary       String?   @db.Text
   aiScore         Float?
@@ -283,6 +297,8 @@ model Candidate {
   applications    Application[]
   interviews      Interview[]
   evaluations     CandidateEvaluation[]
+  assessmentSessions AssessmentSession[]
+  reminders       PipelineReminder[]
 
   @@unique([email, companyId])
   @@index([companyId])
@@ -326,6 +342,8 @@ model Application {
   candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   userId          String?
   user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  assessmentSessions AssessmentSession[]
 
   @@unique([jobPostingId, candidateId])
   @@index([jobPostingId])
@@ -459,4 +477,330 @@ enum EvaluationRecommendation {
   MAYBE
   NO
   STRONG_NO
+}
+
+// ============================================================================
+// OUTREACH MODELS
+// ============================================================================
+
+model OutreachPost {
+  id              String    @id @default(cuid())
+  title           String
+  platforms       String    @db.Json  // Array of platform names
+  status          OutreachStatus @default(DRAFT)
+
+  // AI Analysis
+  aiPlatformRecs  String    @db.Json  // Array of platform recommendations
+  jobType         String?
+
+  // Scheduling
+  scheduledAt     DateTime?
+  postedAt        DateTime?
+
+  // Stats
+  views           Int       @default(0)
+  clicks          Int       @default(0)
+  applications    Int       @default(0)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  jobPostingId    String
+  jobPosting      JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdById     String
+  createdBy       User      @relation(fields: [createdById], references: [id])
+
+  platformContents PlatformContent[]
+
+  @@index([jobPostingId])
+  @@index([companyId])
+  @@index([status])
+  @@index([postedAt])
+}
+
+model PlatformContent {
+  id              String    @id @default(cuid())
+  platform        String
+  content         String    @db.Text
+  characterCount  Int
+  hashtags        String?
+  bestPostingTime String?
+  customization   String?   @db.Json
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  outreachPostId  String
+  outreachPost    OutreachPost @relation(fields: [outreachPostId], references: [id], onDelete: Cascade)
+
+  @@unique([outreachPostId, platform])
+  @@index([outreachPostId])
+}
+
+enum OutreachStatus {
+  DRAFT
+  SCHEDULED
+  POSTED
+  ARCHIVED
+}
+
+// ============================================================================
+// NEW MODELS: Assessment, Settings, Automation, and Social
+// ============================================================================
+
+model CompanySettings {
+  id                  String   @id @default(cuid())
+  companyId           String   @unique
+  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Google Drive Integration
+  googleDriveFolderId   String?
+  googleDriveResumeFolder String?
+  googleDriveVideoFolder  String?
+
+  // Google Calendar
+  googleCalendarId    String?
+  googleCalendarEmail String?
+
+  // Career Page Branding
+  brandColor          String?  @default("#4F46E5")
+  accentColor         String?  @default("#06B6D4")
+  careerPageTitle     String?
+  careerPageDescription String? @db.Text
+  careerPageBanner    String?
+
+  // Assessment Settings
+  assessmentTimeLimit Int?     @default(45)
+  requireVideoIntro   Boolean  @default(true)
+  requireDISC         Boolean  @default(true)
+  videoMaxDuration    Int?     @default(60)
+
+  // Automation
+  autoSendAssessment  Boolean  @default(true)
+  autoRemindDays      Int?     @default(3)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model QuestionBank {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  category        QuestionCategory
+  domain          String?
+  difficulty      QuestionDifficulty @default(MEDIUM)
+
+  question        String   @db.Text
+  options         String?  @db.Text  // JSON array for MCQ options
+  correctAnswer   String?  @db.Text
+  explanation     String?  @db.Text
+
+  // AI metadata
+  aiGenerated     Boolean  @default(true)
+  tags            String?  // comma-separated
+
+  active          Boolean  @default(true)
+  usageCount      Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([companyId, category])
+  @@index([companyId, domain])
+}
+
+enum QuestionCategory {
+  SKILL
+  COMMUNICATION
+  EXPERIENCE
+  PSYCHOMETRIC
+}
+
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model AssessmentSession {
+  id              String   @id @default(cuid())
+  token           String   @unique @default(cuid())
+
+  candidateId     String
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  applicationId   String
+  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  status          AssessmentStatus @default(PENDING)
+
+  // Scores
+  skillScore      Float?
+  communicationScore Float?
+  experienceScore Float?
+  psycheScore     Float?
+  overallScore    Float?
+
+  // Timing
+  startedAt       DateTime?
+  completedAt     DateTime?
+  expiresAt       DateTime?
+  timeSpent       Int?     // seconds
+
+  // DISC results
+  discCompleted   Boolean  @default(false)
+  discProfile     String?  // D, I, S, C primary
+  discScores      String?  @db.Text  // JSON {D: x, I: x, S: x, C: x}
+  discReport      String?  @db.Text
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  responses       AssessmentResponse[]
+
+  @@index([candidateId])
+  @@index([applicationId])
+  @@index([companyId])
+  @@index([status])
+  @@index([token])
+}
+
+enum AssessmentStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+model AssessmentResponse {
+  id              String   @id @default(cuid())
+  sessionId       String
+  session         AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  questionId      String?
+  questionText    String   @db.Text
+  category        QuestionCategory
+
+  answer          String   @db.Text
+  isCorrect       Boolean?
+  score           Float?
+  aiEvaluation    String?  @db.Text
+
+  timeSpent       Int?     // seconds per question
+
+  createdAt       DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([category])
+}
+
+model AutomationRule {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name            String
+  trigger         AutomationTrigger
+  action          AutomationAction
+  config          String   @db.Text  // JSON config
+
+  active          Boolean  @default(true)
+  executionCount  Int      @default(0)
+  lastExecutedAt  DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([trigger])
+}
+
+enum AutomationTrigger {
+  APPLICATION_RECEIVED
+  ASSESSMENT_PENDING
+  ASSESSMENT_COMPLETED
+  DISC_COMPLETED
+  INTERVIEW_SCHEDULED
+  INTERVIEW_COMPLETED
+  STAGE_CHANGED
+  DEADLINE_APPROACHING
+  NO_RESPONSE
+}
+
+enum AutomationAction {
+  SEND_EMAIL
+  SEND_REMINDER
+  MOVE_STAGE
+  SCHEDULE_ASSESSMENT
+  GENERATE_REPORT
+  NOTIFY_TEAM
+  ARCHIVE_CANDIDATE
+}
+
+model PipelineReminder {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  candidateId     String
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  applicationId   String?
+
+  type            ReminderType
+  message         String   @db.Text
+  scheduledFor    DateTime
+  sentAt          DateTime?
+  status          ReminderStatus @default(PENDING)
+
+  createdAt       DateTime @default(now())
+
+  @@index([companyId])
+  @@index([candidateId])
+  @@index([scheduledFor])
+  @@index([status])
+}
+
+enum ReminderType {
+  ASSESSMENT_REMINDER
+  DISC_REMINDER
+  INTERVIEW_REMINDER
+  APPLICATION_FOLLOWUP
+  DEADLINE_WARNING
+  CUSTOM
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model SocialSnippet {
+  id              String   @id @default(cuid())
+  jobPostingId    String
+  jobPosting      JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  platform        SocialPlatform
+  content         String   @db.Text
+  hashtags        String?
+  shortUrl        String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([jobPostingId])
+}
+
+enum SocialPlatform {
+  LINKEDIN
+  TWITTER
+  FACEBOOK
+  INSTAGRAM
 }

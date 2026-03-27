@@ -1,132 +1,250 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CheckCircle, XCircle, Clock, Award, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import Link from 'next/link';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import DISCProfileChart from '@/components/assessments/disc-profile-chart';
+import DISCReport from '@/components/assessments/disc-report';
+import ScoreBreakdown from '@/components/assessments/score-breakdown';
 
-interface AssessmentResult {
+interface CandidateResult {
   id: string;
-  candidateName: string;
-  assessmentTitle: string;
+  candidate_name: string;
+  candidate_email: string;
+  submitted_at: string;
   score: number;
-  totalQuestions: number;
-  correctAnswers: number;
-  timeTaken: number;
-  completedAt: string;
-  status: string;
-  answers: Array<{
-    questionText: string;
-    answer: string;
-    isCorrect: boolean;
-    score: number;
-  }>;
+  status: 'completed' | 'in_progress' | 'abandoned';
+  disc_profile?: {
+    primary: 'D' | 'I' | 'S' | 'C';
+    secondary: 'D' | 'I' | 'S' | 'C';
+    scores: {
+      dominance: number;
+      influence: number;
+      steadiness: number;
+      conscientiousness: number;
+    };
+    report: any;
+  };
 }
 
-export default function AssessmentResultsPage() {
+interface Assessment {
+  id: string;
+  title: string;
+  type: 'SKILL' | 'PSYCHOMETRIC' | 'ATTITUDE' | 'BACKGROUND';
+  question_count: number;
+  results: CandidateResult[];
+}
+
+export default function ResultsPage() {
   const params = useParams();
-  const [result, setResult] = useState<AssessmentResult | null>(null);
+  const assessmentId = params.id as string;
+
+  const [assessment, setAssessment] = useState<Assessment | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<CandidateResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchResults = async () => {
+    async function fetchResults() {
       try {
-        setLoading(true);
-        const res = await fetch(`/api/assessments/${params.id}/results`);
-        if (!res.ok) throw new Error('Results not found');
-        const data = await res.json();
-        setResult(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load results');
+        const response = await fetch(`/api/assessments/${assessmentId}/results`);
+        if (!response.ok) throw new Error('Failed to fetch results');
+        const data = await response.json();
+        setAssessment(data);
+        if (data.results.length > 0) {
+          setSelectedCandidate(data.results[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching results:', error);
       } finally {
         setLoading(false);
       }
-    };
-    if (params.id) fetchResults();
-  }, [params.id]);
+    }
+
+    fetchResults();
+  }, [assessmentId]);
 
   if (loading) {
     return (
-      <div className="flex-1 space-y-6 p-6 bg-slate-50 dark:bg-slate-950">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <Skeleton key={i} className="h-24" />)}
-        </div>
-        <Skeleton className="h-96" />
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full"></div>
       </div>
     );
   }
 
-  if (error || !result) {
-    return (
-      <div className="flex-1 space-y-6 p-6 bg-slate-50 dark:bg-slate-950">
-        <Link href="/assessments"><Button variant="ghost" size="sm" className="gap-2"><ArrowLeft className="w-4 h-4" /> Back</Button></Link>
-        <Card className="p-6 border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
-          <p className="text-red-800 dark:text-red-200">{error || 'Results not found'}</p>
-        </Card>
-      </div>
-    );
+  if (!assessment) {
+    return <div className="text-center text-slate-600">Assessment not found</div>;
   }
-
-  const scoreColor = result.score >= 80 ? 'text-green-600' : result.score >= 50 ? 'text-amber-600' : 'text-red-600';
 
   return (
-    <div className="flex-1 space-y-6 p-6 bg-slate-50 dark:bg-slate-950">
-      <div className="flex items-center gap-4">
-        <Link href="/assessments"><Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button></Link>
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Assessment Results</h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">{result.assessmentTitle} — {result.candidateName}</p>
-        </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900">{assessment.title} - Results</h1>
+        <p className="text-slate-600 mt-1">
+          {assessment.results.length} candidates have completed this assessment
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4 bg-white dark:bg-slate-900 text-center">
-          <Award className={`w-8 h-8 mx-auto ${scoreColor}`} />
-          <p className={`text-3xl font-bold mt-2 ${scoreColor}`}>{result.score}%</p>
-          <p className="text-sm text-slate-500">Overall Score</p>
+      {assessment.results.length === 0 ? (
+        <Card className="p-12 text-center">
+          <p className="text-slate-600">No results yet. Candidates will appear here once they complete the assessment.</p>
         </Card>
-        <Card className="p-4 bg-white dark:bg-slate-900 text-center">
-          <CheckCircle className="w-8 h-8 mx-auto text-green-600" />
-          <p className="text-3xl font-bold mt-2 text-slate-900 dark:text-white">{result.correctAnswers}/{result.totalQuestions}</p>
-          <p className="text-sm text-slate-500">Correct Answers</p>
-        </Card>
-        <Card className="p-4 bg-white dark:bg-slate-900 text-center">
-          <Clock className="w-8 h-8 mx-auto text-blue-600" />
-          <p className="text-3xl font-bold mt-2 text-slate-900 dark:text-white">{result.timeTaken}m</p>
-          <p className="text-sm text-slate-500">Time Taken</p>
-        </Card>
-        <Card className="p-4 bg-white dark:bg-slate-900 text-center">
-          <p className="text-sm text-slate-500 mt-2">Completed</p>
-          <p className="text-lg font-semibold text-slate-900 dark:text-white mt-1">{new Date(result.completedAt).toLocaleDateString()}</p>
-        </Card>
-      </div>
+      ) : (
+        <Tabs defaultValue="candidates" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="candidates">All Candidates</TabsTrigger>
+            <TabsTrigger value="detail">
+              {selectedCandidate ? 'Detailed Analysis' : 'Select a candidate'}
+            </TabsTrigger>
+          </TabsList>
 
-      <Card className="p-6 bg-white dark:bg-slate-900">
-        <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Detailed Results</h3>
-        <div className="space-y-4">
-          {result.answers.map((answer, idx) => (
-            <div key={idx} className="p-4 rounded-lg border border-slate-200 dark:border-slate-700">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900 dark:text-white text-sm">Q{idx + 1}: {answer.questionText}</p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">Answer: {answer.answer}</p>
-                </div>
-                {answer.isCorrect ? (
-                  <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+          {/* Candidates Tab */}
+          <TabsContent value="candidates" className="space-y-4">
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50 hover:bg-slate-50">
+                    <TableHead>Candidate</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Status</TableHead>
+                    {assessment.type === 'PSYCHOMETRIC' && <TableHead>DISC Profile</TableHead>}
+                    {assessment.type === 'SKILL' && <TableHead className="text-right">Score</TableHead>}
+                    <TableHead>Submitted</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {assessment.results.map((result) => (
+                    <TableRow
+                      key={result.id}
+                      className="cursor-pointer hover:bg-blue-50"
+                      onClick={() => setSelectedCandidate(result)}
+                    >
+                      <TableCell className="font-medium text-slate-900">
+                        {result.candidate_name}
+                      </TableCell>
+                      <TableCell className="text-slate-600">{result.candidate_email}</TableCell>
+                      <TableCell>
+                        <Badge
+                          className={
+                            result.status === 'completed'
+                              ? 'bg-green-100 text-green-800'
+                              : result.status === 'in_progress'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }
+                        >
+                          {result.status.charAt(0).toUpperCase() + result.status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      {assessment.type === 'PSYCHOMETRIC' && (
+                        <TableCell>
+                          {result.disc_profile ? (
+                            <Badge className="bg-blue-100 text-blue-800">
+                              {result.disc_profile.primary}
+                            </Badge>
+                          ) : (
+                            <span className="text-slate-600">-</span>
+                          )}
+                        </TableCell>
+                      )}
+                      {assessment.type === 'SKILL' && (
+                        <TableCell className="text-right font-medium">
+                          {result.score}%
+                        </TableCell>
+                      )}
+                      <TableCell className="text-sm text-slate-600">
+                        {new Date(result.submitted_at).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+
+          {/* Detail Tab */}
+          <TabsContent value="detail" className="space-y-6">
+            {selectedCandidate ? (
+              <>
+                {/* Candidate Header */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>{selectedCandidate.candidate_name}</CardTitle>
+                        <CardDescription className="text-base mt-1">
+                          {selectedCandidate.candidate_email}
+                        </CardDescription>
+                      </div>
+                      <Badge className="text-base px-3 py-1 bg-green-100 text-green-800">
+                        {selectedCandidate.status.charAt(0).toUpperCase() +
+                          selectedCandidate.status.slice(1)}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-slate-600">Submitted</span>
+                        <p className="font-semibold text-slate-900">
+                          {new Date(selectedCandidate.submitted_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                      {assessment.type === 'SKILL' && (
+                        <div>
+                          <span className="text-slate-600">Final Score</span>
+                          <p className="font-semibold text-slate-900 text-lg">
+                            {selectedCandidate.score}%
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* DISC Profile or Score Breakdown */}
+                {assessment.type === 'PSYCHOMETRIC' && selectedCandidate.disc_profile ? (
+                  <>
+                    <DISCProfileChart scores={selectedCandidate.disc_profile.scores} />
+                    <DISCReport
+                      report={selectedCandidate.disc_profile.report}
+                      profileType={selectedCandidate.disc_profile.primary}
+                    />
+                  </>
+                ) : assessment.type === 'SKILL' ? (
+                  <ScoreBreakdown assessmentId={assessmentId} candidateId={selectedCandidate.id} />
                 ) : (
-                  <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                  <Card>
+                    <CardContent className="pt-6">
+                      <p className="text-slate-600">Detailed analysis available after completion.</p>
+                    </CardContent>
+                  </Card>
                 )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+              </>
+            ) : (
+              <Card className="p-12 text-center">
+                <p className="text-slate-600">Select a candidate to view detailed results</p>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }
