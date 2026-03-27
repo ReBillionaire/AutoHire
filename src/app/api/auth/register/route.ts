@@ -42,31 +42,38 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await hash(password, 12);
 
-    // Create user and optionally create organization
+    // Create user and optionally create company
     const user = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
-        role: "user",
+        role: "USER",
       },
     });
 
-    // If orgName provided, create organization and add user as owner
+    // If orgName provided, create company and add user as owner
     if (orgName) {
-      const organization = await prisma.organization.create({
+      const slug = orgName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+
+      const company = await prisma.company.create({
         data: {
           name: orgName,
+          slug,
           ownerId: user.id,
         },
       });
 
-      // Create org membership
-      await prisma.orgMembership.create({
+      // Create company membership
+      await prisma.companyMember.create({
         data: {
-          userId: user.id,
-          organizationId: organization.id,
-          role: "owner",
+          companyId: company.id,
+          email: user.email!,
+          role: "OWNER",
+          status: "ACCEPTED",
         },
       });
     }
