@@ -2,7 +2,7 @@
 
 import { FC, useState } from 'react';
 import { formatDate } from '@/lib/utils';
-import { Eye, Click, Users, Trash2, MoreHorizontal, Copy } from 'lucide-react';
+import { Eye, MousePointerClick, Users, Trash2, MoreHorizontal, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface OutreachPost {
@@ -168,7 +168,7 @@ export const OutreachTable: FC<OutreachTableProps> = ({
                     <span className="font-medium">{post.views}</span>
                   </div>
                   <div className="flex items-center gap-1 text-gray-600">
-                    <Click className="w-4 h-4" />
+                    <MousePointerClick className="w-4 h-4" />
                     <span className="font-medium">{post.clicks}</span>
                   </div>
                   <div className="flex items-center gap-1 text-gray-600">
