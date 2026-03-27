@@ -7,11 +7,9 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface PipelineChartProps {
@@ -20,71 +18,73 @@ interface PipelineChartProps {
 }
 
 export function PipelineChart({ isLoading, data }: PipelineChartProps) {
-  const chartData = data;
-
   if (isLoading) {
     return (
-      <Card className="p-6 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div className="space-y-4">
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-80 w-full" />
-        </div>
-      </Card>
+      <div className="p-6 rounded-xl border border-border bg-card">
+        <Skeleton className="h-5 w-36 mb-6" />
+        <Skeleton className="h-[280px] w-full rounded-lg" />
+      </div>
     );
   }
 
-  if (!chartData || chartData.length === 0) {
+  if (!data || data.length === 0) {
     return (
-      <Card className="p-6 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+      <div className="p-6 rounded-xl border border-border bg-card">
+        <h3 className="text-sm font-semibold text-foreground mb-6">
           Candidate Pipeline
         </h3>
-        <div className="h-80 flex items-center justify-center">
-          <p className="text-slate-600 dark:text-slate-400">
-            No pipeline data available
-          </p>
+        <div className="h-[280px] flex items-center justify-center">
+          <div className="text-center space-y-2">
+            <p className="text-sm text-muted-foreground">No pipeline data yet</p>
+            <p className="text-xs text-muted-foreground/70">Create a job to start seeing pipeline metrics</p>
+          </div>
         </div>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="p-6 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+    <div className="p-6 rounded-xl border border-border bg-card">
+      <h3 className="text-sm font-semibold text-foreground mb-6">
         Candidate Pipeline
       </h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={chartData}>
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={data} barCategoryGap="20%">
           <CartesianGrid
             strokeDasharray="3 3"
-            stroke="#e2e8f0"
-            className="dark:stroke-slate-800"
+            stroke="hsl(var(--border))"
+            vertical={false}
           />
           <XAxis
             dataKey="stage"
-            stroke="#6b7280"
-            style={{ fontSize: '12px' }}
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={12}
+            tickLine={false}
+            axisLine={false}
           />
           <YAxis
-            stroke="#6b7280"
-            style={{ fontSize: '12px' }}
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={12}
+            tickLine={false}
+            axisLine={false}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: '#f8fafc',
-              border: '1px solid #e2e8f0',
+              backgroundColor: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
               borderRadius: '8px',
+              fontSize: '13px',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             }}
-            cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
+            cursor={{ fill: 'hsl(var(--primary) / 0.05)' }}
           />
-          <Bar dataKey="count" radius={[8, 8, 0, 0]}>
-            {chartData.map((entry, index) => (
+          <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+            {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.color} />
             ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-    </Card>
+    </div>
   );
 }
-export default function Component() { return <div>Component</div>; }

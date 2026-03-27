@@ -1,7 +1,6 @@
 'use client';
 
-import { LucideIcon } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { LucideIcon, TrendingDown, TrendingUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface StatsCardProps {
@@ -19,48 +18,42 @@ interface StatsCardProps {
 export function StatsCard({ icon: Icon, label, value, trend, isLoading }: StatsCardProps) {
   if (isLoading) {
     return (
-      <Card className="p-6 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-10 w-10 rounded-lg" />
-          <Skeleton className="h-4 w-16" />
+      <div className="p-5 rounded-xl border border-border bg-card">
+        <div className="flex items-center justify-between mb-4">
+          <Skeleton className="h-9 w-9 rounded-lg" />
+          <Skeleton className="h-5 w-16 rounded-full" />
         </div>
-        <Skeleton className="h-8 w-20 mt-4" />
-        <Skeleton className="h-4 w-32 mt-2" />
-      </Card>
+        <Skeleton className="h-8 w-20 mb-1" />
+        <Skeleton className="h-4 w-28" />
+      </div>
     );
   }
 
   return (
-    <Card className="p-6 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between">
-        <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30">
-          <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+    <div className="p-5 rounded-xl border border-border bg-card hover:shadow-elevation-1 transition-all duration-200 group">
+      <div className="flex items-center justify-between mb-4">
+        <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+          <Icon className="w-[18px] h-[18px] text-primary" />
         </div>
         {trend && (
-          <span
-            className={`text-xs font-semibold px-2 py-1 rounded-full ${
+          <div
+            className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${
               trend.direction === 'up'
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                ? 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10'
+                : 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-500/10'
             }`}
           >
-            {trend.direction === 'up' ? '+' : '-'}{trend.percentage}%
-          </span>
+            {trend.direction === 'up' ? (
+              <TrendingUp className="w-3 h-3" />
+            ) : (
+              <TrendingDown className="w-3 h-3" />
+            )}
+            {trend.percentage}%
+          </div>
         )}
       </div>
-      <div className="mt-4">
-        <p className="text-2xl font-bold text-slate-900 dark:text-white">
-          {value}
-        </p>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-          {label}
-        </p>
-      </div>
-      {trend && (
-        <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
-          vs {trend.period}
-        </p>
-      )}
-    </Card>
+      <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
+      <p className="text-sm text-muted-foreground mt-0.5">{label}</p>
+    </div>
   );
 }

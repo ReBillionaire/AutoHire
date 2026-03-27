@@ -25,17 +25,18 @@ interface KanbanBoardProps {
 }
 
 const PIPELINE_STAGES = [
-  { id: 'Applied', label: 'Applied', color: 'bg-blue-50 dark:bg-blue-950', borderColor: 'border-blue-200 dark:border-blue-800' },
-  { id: 'Screening', label: 'Screening', color: 'bg-purple-50 dark:bg-purple-950', borderColor: 'border-purple-200 dark:border-purple-800' },
-  { id: 'Assessment', label: 'Assessment', color: 'bg-amber-50 dark:bg-amber-950', borderColor: 'border-amber-200 dark:border-amber-800' },
-  { id: 'Interview', label: 'Interview', color: 'bg-cyan-50 dark:bg-cyan-950', borderColor: 'border-cyan-200 dark:border-cyan-800' },
-  { id: 'Offer', label: 'Offer', color: 'bg-emerald-50 dark:bg-emerald-950', borderColor: 'border-emerald-200 dark:border-emerald-800' },
-  { id: 'Hired', label: 'Hired', color: 'bg-green-50 dark:bg-green-950', borderColor: 'border-green-200 dark:border-green-800' },
-  { id: 'Rejected', label: 'Rejected', color: 'bg-red-50 dark:bg-red-950', borderColor: 'border-red-200 dark:border-red-800' },
+  { id: 'Applied', label: 'Applied', dot: 'bg-blue-500' },
+  { id: 'Screening', label: 'Screening', dot: 'bg-violet-500' },
+  { id: 'Assessment', label: 'Assessment', dot: 'bg-amber-500' },
+  { id: 'Interview', label: 'Interview', dot: 'bg-cyan-500' },
+  { id: 'Offer', label: 'Offer', dot: 'bg-emerald-500' },
+  { id: 'Hired', label: 'Hired', dot: 'bg-green-500' },
+  { id: 'Rejected', label: 'Rejected', dot: 'bg-red-500' },
 ];
 
 export function KanbanBoard({ candidates, jobTitle }: KanbanBoardProps) {
   const [draggedCandidate, setDraggedCandidate] = useState<Candidate | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false);
 
@@ -44,18 +45,23 @@ export function KanbanBoard({ candidates, jobTitle }: KanbanBoardProps) {
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, stageId: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    setDragOverStage(stageId);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverStage(null);
   };
 
   const handleDrop = (e: React.DragEvent, targetStage: string) => {
     e.preventDefault();
     if (draggedCandidate && draggedCandidate.stage !== targetStage) {
-      // TODO: Update candidate stage in API
       console.log(`Moving ${draggedCandidate.name} from ${draggedCandidate.stage} to ${targetStage}`);
     }
     setDraggedCandidate(null);
+    setDragOverStage(null);
   };
 
   const handleCandidateClick = (candidate: Candidate) => {
@@ -65,55 +71,42 @@ export function KanbanBoard({ candidates, jobTitle }: KanbanBoardProps) {
 
   return (
     <>
-      <div className="p-6 h-full">
-        {/* Kanban Board */}
-        <div className="flex gap-6 h-full overflow-x-auto pb-6">
+      <div className="h-full px-4 md:px-6 lg:px-8 pb-6 overflow-x-auto">
+        <div className="flex gap-4 h-full min-w-max">
           {PIPELINE_STAGES.map((stage) => {
             const stageCandidates = candidates.filter((c) => c.stage === stage.id);
+            const isDragOver = dragOverStage === stage.id && draggedCandidate?.stage !== stage.id;
 
             return (
-              <div key={stage.id} className="flex flex-col flex-shrink-0 w-80">
-                {/* Column Header */}
-                <div className="mb-4">
+              <div key={stage.id} className="flex flex-col w-72 flex-shrink-0">
+                {/* Column header */}
+                <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full" style={{
-                        backgroundColor: stage.id === 'Applied' ? '#3b82f6' :
-                                        stage.id === 'Screening' ? '#a855f7' :
-                                        stage.id === 'Assessment' ? '#f59e0b' :
-                                        stage.id === 'Interview' ? '#06b6d4' :
-                                        stage.id === 'Offer' ? '#10b981' :
-                                        stage.id === 'Hired' ? '#22c55e' : '#ef4444'
-                      }} />
-                      {stage.label}
-                    </h3>
-                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${stage.dot}`} />
+                      <span className="text-[13px] font-semibold text-foreground">{stage.label}</span>
+                    </div>
+                    <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">
                       {stageCandidates.length}
                     </span>
                   </div>
-                  <div className="h-1 bg-gradient-to-r rounded-full" style={{
-                    background: stage.id === 'Applied' ? '#3b82f6' :
-                               stage.id === 'Screening' ? '#a855f7' :
-                               stage.id === 'Assessment' ? '#f59e0b' :
-                               stage.id === 'Interview' ? '#06b6d4' :
-                               stage.id === 'Offer' ? '#10b981' :
-                               stage.id === 'Hired' ? '#22c55e' : '#ef4444'
-                  }} />
+                  <div className={`h-0.5 rounded-full ${stage.dot} opacity-60`} />
                 </div>
 
-                {/* Drop Zone */}
+                {/* Drop zone */}
                 <div
-                  onDragOver={handleDragOver}
+                  onDragOver={(e) => handleDragOver(e, stage.id)}
+                  onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, stage.id)}
-                  className={`flex-1 rounded-lg border-2 border-dashed transition-colors ${
-                    draggedCandidate?.stage !== stage.id
-                      ? `${stage.borderColor} bg-opacity-30`
-                      : 'border-slate-400 bg-slate-100 dark:bg-slate-800'
+                  className={`flex-1 rounded-xl border border-dashed transition-all duration-200 overflow-y-auto ${
+                    isDragOver
+                      ? 'border-primary bg-primary/5 scale-[1.01]'
+                      : 'border-border/50 bg-muted/20'
                   }`}
                 >
-                  <div className="flex flex-col gap-3 p-4">
+                  <div className="flex flex-col gap-2.5 p-3">
                     {stageCandidates.length === 0 ? (
-                      <div className="flex items-center justify-center h-40 text-slate-400 dark:text-slate-500 text-sm">
+                      <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
                         No candidates
                       </div>
                     ) : (
@@ -137,7 +130,6 @@ export function KanbanBoard({ candidates, jobTitle }: KanbanBoardProps) {
         </div>
       </div>
 
-      {/* Detail Panel */}
       <CandidateDetailPanel
         candidate={selectedCandidate}
         isOpen={isDetailPanelOpen}

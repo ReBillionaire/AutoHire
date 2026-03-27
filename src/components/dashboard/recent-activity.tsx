@@ -1,104 +1,95 @@
 'use client';
 
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   CheckCircle,
   Clock,
   MessageSquare,
   Plus,
-  User,
+  XCircle,
 } from 'lucide-react';
-
-interface ActivityItem {
-  id: string;
-  type: 'application' | 'interview' | 'offer' | 'rejection' | 'message';
-  description: string;
-  details: string;
-  timestamp: string;
-  actor?: string;
-}
 
 interface RecentActivityProps {
   isLoading?: boolean;
   activities?: Array<{ id: string; type: string; description: string; details: string; timestamp: string }>;
 }
 
-const activityIcons = {
-  application: { icon: Plus, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900/30' },
-  interview: { icon: Clock, color: 'text-yellow-500', bg: 'bg-yellow-100 dark:bg-yellow-900/30' },
-  offer: { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-100 dark:bg-green-900/30' },
-  rejection: { icon: MessageSquare, color: 'text-red-500', bg: 'bg-red-100 dark:bg-red-900/30' },
-  message: { icon: MessageSquare, color: 'text-purple-500', bg: 'bg-purple-100 dark:bg-purple-900/30' },
+const activityConfig: Record<string, { icon: typeof Plus; color: string; bg: string }> = {
+  application: { icon: Plus, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+  interview: { icon: Clock, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+  offer: { icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+  rejection: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-500/10' },
+  message: { icon: MessageSquare, color: 'text-violet-500', bg: 'bg-violet-500/10' },
 };
 
 export function RecentActivity({ isLoading, activities }: RecentActivityProps) {
   if (isLoading) {
     return (
-      <Card className="p-6 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div className="space-y-4">
-          <Skeleton className="h-6 w-32" />
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
-          </div>
+      <div className="p-6 rounded-xl border border-border bg-card">
+        <Skeleton className="h-5 w-28 mb-5" />
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="w-8 h-8 rounded-lg flex-shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+              <Skeleton className="h-3 w-16" />
+            </div>
+          ))}
         </div>
-      </Card>
+      </div>
     );
   }
 
   if (!activities || activities.length === 0) {
     return (
-      <Card className="p-6 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+      <div className="p-6 rounded-xl border border-border bg-card">
+        <h3 className="text-sm font-semibold text-foreground mb-5">
           Recent Activity
         </h3>
-        <p className="text-slate-600 dark:text-slate-400">
-          No recent activity
-        </p>
-      </Card>
+        <div className="py-8 text-center">
+          <p className="text-sm text-muted-foreground">No recent activity</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">Activity will appear here as you use the platform</p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="p-6 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+    <div className="p-6 rounded-xl border border-border bg-card">
+      <h3 className="text-sm font-semibold text-foreground mb-5">
         Recent Activity
       </h3>
-      <div className="space-y-3">
+      <div className="space-y-1">
         {activities.map((activity) => {
-          const activityType = activity.type as keyof typeof activityIcons;
-          const iconData = activityIcons[activityType] || activityIcons.message;
-          const { icon: Icon, color, bg } = iconData;
+          const config = activityConfig[activity.type] || activityConfig.message;
+          const Icon = config.icon;
 
           return (
             <div
               key={activity.id}
-              className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+              className="flex items-start gap-3 p-3 -mx-1 rounded-lg hover:bg-muted/50 transition-colors"
             >
-              <div className={`p-2 rounded-lg flex-shrink-0 ${bg}`}>
-                <Icon className={`h-4 w-4 ${color}`} />
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${config.bg}`}>
+                <Icon className={`w-4 h-4 ${config.color}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm text-slate-900 dark:text-white">
+                <p className="text-[13px] font-medium text-foreground leading-snug">
                   {activity.description}
                 </p>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {activity.details}
                 </p>
               </div>
-              <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {activity.timestamp}
-                </span>
-              </div>
+              <span className="text-[11px] text-muted-foreground flex-shrink-0 mt-0.5">
+                {activity.timestamp}
+              </span>
             </div>
           );
         })}
       </div>
-    </Card>
+    </div>
   );
 }
-export default function Component() { return <div>Component</div>; }

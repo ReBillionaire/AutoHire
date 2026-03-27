@@ -1,6 +1,5 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface CandidateCardProps {
@@ -17,84 +16,65 @@ interface CandidateCardProps {
   };
 }
 
-function getScoreColor(score: number) {
-  if (score >= 80) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-green-200 dark:border-green-800';
-  if (score >= 50) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-yellow-200 dark:border-yellow-800';
-  return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border-red-200 dark:border-red-800';
+function getScoreStyle(score: number) {
+  if (score >= 80) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400';
+  if (score >= 50) return 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400';
+  return 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400';
 }
 
-function getSourceColor(source: string) {
+function getSourceStyle(source: string) {
   switch (source) {
-    case 'LinkedIn':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-    case 'Career Page':
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-    case 'Referral':
-      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200';
-    default:
-      return 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200';
+    case 'LinkedIn': return 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400';
+    case 'Career Page': return 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400';
+    case 'Referral': return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400';
+    default: return 'bg-muted text-muted-foreground';
   }
-}
-
-function getDISCColor(profile: string) {
-  return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
 }
 
 export function CandidateCard({ candidate }: CandidateCardProps) {
   return (
-    <div className="group relative bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600">
-      {/* Header with Avatar and Name */}
-      <div className="flex gap-3 mb-3">
-        <Avatar className="h-10 w-10 flex-shrink-0">
+    <div className="group bg-card rounded-xl border border-border p-3.5 shadow-sm hover:shadow-elevation-1 hover:border-border/80 transition-all duration-200">
+      {/* Header */}
+      <div className="flex gap-2.5 mb-2.5">
+        <Avatar className="h-8 w-8 flex-shrink-0">
           <AvatarImage src={candidate.avatar} alt={candidate.name} />
-          <AvatarFallback>{candidate.name.charAt(0)}</AvatarFallback>
+          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+            {candidate.name.charAt(0)}
+          </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+          <h4 className="text-[13px] font-medium text-foreground truncate leading-tight">
             {candidate.name}
           </h4>
-          <p className="text-xs text-slate-600 dark:text-slate-400 truncate">
+          <p className="text-[11px] text-muted-foreground truncate">
             {candidate.title}
           </p>
         </div>
       </div>
 
       {/* Company */}
-      <p className="text-xs text-slate-500 dark:text-slate-500 mb-3 truncate">
-        {candidate.company}
-      </p>
+      {candidate.company && (
+        <p className="text-[11px] text-muted-foreground/70 mb-2.5 truncate">
+          {candidate.company}
+        </p>
+      )}
 
-      {/* Badges Row */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        {/* AI Score Badge */}
-        <Badge
-          variant="outline"
-          className={`text-xs px-2 py-1 ${getScoreColor(candidate.aiScore)}`}
-        >
-          Score: {candidate.aiScore}%
-        </Badge>
-
-        {/* DISC Profile Badge */}
-        <Badge
-          variant="outline"
-          className={`text-xs px-2 py-1 ${getDISCColor(candidate.discProfile)}`}
-        >
+      {/* Badges */}
+      <div className="flex flex-wrap gap-1.5 mb-2.5">
+        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${getScoreStyle(candidate.aiScore)}`}>
+          {candidate.aiScore}%
+        </span>
+        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400">
           {candidate.discProfile}
-        </Badge>
+        </span>
+        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${getSourceStyle(candidate.source)}`}>
+          {candidate.source}
+        </span>
       </div>
 
-      {/* Bottom Section */}
+      {/* Footer */}
       <div className="flex items-center justify-between">
-        {/* Source Tag */}
-        <Badge
-          variant="secondary"
-          className={`text-xs px-2 py-1 ${getSourceColor(candidate.source)}`}
-        >
-          {candidate.source}
-        </Badge>
-
-        {/* Time in Stage */}
-        <span className="text-xs text-slate-500 dark:text-slate-400">
+        <span className="text-[10px] text-muted-foreground/60">
           {candidate.timeInStage}
         </span>
       </div>

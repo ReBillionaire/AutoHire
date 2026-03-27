@@ -1,9 +1,6 @@
 'use client';
 
-import { MoreHorizontal, Clock, MapPin, User } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Clock, User } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -29,21 +26,21 @@ interface InterviewCardProps {
   interview: Interview;
 }
 
-const typeColors: Record<string, { badge: string; icon: string }> = {
-  SCREENING: { badge: 'outline', icon: '🔍' },
-  PHONE: { badge: 'secondary', icon: '📞' },
-  TECHNICAL: { badge: 'default', icon: '💻' },
-  BEHAVIORAL: { badge: 'outline', icon: '💭' },
-  CASE_STUDY: { badge: 'secondary', icon: '📊' },
-  PRESENTATION: { badge: 'default', icon: '📽️' },
-  FINAL: { badge: 'destructive', icon: '🎯' },
+const typeBadge: Record<string, string> = {
+  SCREENING: 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400',
+  PHONE: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  TECHNICAL: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+  BEHAVIORAL: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+  CASE_STUDY: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  PRESENTATION: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400',
+  FINAL: 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400',
 };
 
-const statusColors = {
-  SCHEDULED: 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800',
-  COMPLETED: 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800',
-  CANCELLED: 'bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800',
-  NO_SHOW: 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800',
+const statusBadge: Record<string, string> = {
+  SCHEDULED: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  COMPLETED: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+  CANCELLED: 'bg-muted text-muted-foreground',
+  NO_SHOW: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
 };
 
 export default function InterviewCard({ interview }: InterviewCardProps) {
@@ -52,86 +49,63 @@ export default function InterviewCard({ interview }: InterviewCardProps) {
     .map((n) => n[0])
     .join('');
 
-  const typeInfo = typeColors[interview.type];
-  const statusClass = statusColors[interview.status];
-
   return (
     <Link href={`/interviews/${interview.id}`}>
-      <Card className={`p-4 hover:shadow-md transition-all cursor-pointer border-l-4 ${statusClass}`}>
+      <div className="group p-4 rounded-xl border border-border bg-card hover:shadow-elevation-1 hover:border-border/80 transition-all cursor-pointer">
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3 flex-1">
-            <Avatar className="w-10 h-10">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <Avatar className="h-9 w-9 flex-shrink-0">
               <AvatarImage src="" />
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+              <AvatarFallback className="text-xs bg-primary/10 text-primary">{initials}</AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-slate-900 dark:text-white truncate">
-                {interview.candidateName}
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
-                {interview.jobTitle}
-              </p>
+            <div className="min-w-0">
+              <h3 className="text-[13px] font-medium text-foreground truncate">{interview.candidateName}</h3>
+              <p className="text-[11px] text-muted-foreground truncate">{interview.jobTitle}</p>
             </div>
           </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
-              <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2">
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
+              <button className="w-7 h-7 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 hover:bg-accent transition-all">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-muted-foreground">
+                  <circle cx="8" cy="3" r="1.5" fill="currentColor" />
+                  <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                  <circle cx="8" cy="13" r="1.5" fill="currentColor" />
+                </svg>
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem>View Details</DropdownMenuItem>
               <DropdownMenuItem>Edit</DropdownMenuItem>
               <DropdownMenuItem>Send Calendar Invite</DropdownMenuItem>
-              <DropdownMenuItem>Cancel</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive">Cancel</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
         {/* Details */}
-        <div className="space-y-2 mb-3">
-          <div className="flex items-center gap-2 text-sm">
-            <Clock className="w-4 h-4 text-slate-400" />
-            <span className="text-slate-700 dark:text-slate-300">
-              {format(new Date(interview.scheduledAt), 'MMM d, yyyy • h:mm a')}
-            </span>
+        <div className="space-y-1.5 mb-3">
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <Clock className="w-3 h-3" />
+            <span>{format(new Date(interview.scheduledAt), 'MMM d, yyyy \u00B7 h:mm a')}</span>
           </div>
-
-          <div className="flex items-center gap-2 text-sm">
-            <User className="w-4 h-4 text-slate-400" />
-            <span className="text-slate-700 dark:text-slate-300">
-              {interview.interviewer}
-            </span>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <User className="w-3 h-3" />
+            <span>{interview.interviewer}</span>
           </div>
         </div>
 
         {/* Badges */}
-        <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-2">
-            <Badge
-              variant={typeInfo.badge as any}
-              className="text-xs"
-            >
-              {interview.type.charAt(0) + interview.type.slice(1).toLowerCase()}
-            </Badge>
-            <Badge
-              variant={
-                interview.status === 'SCHEDULED'
-                  ? 'secondary'
-                  : interview.status === 'COMPLETED'
-                    ? 'default'
-                    : 'outline'
-              }
-              className="text-xs"
-            >
-              {interview.status.charAt(0) + interview.status.slice(1).toLowerCase()}
-            </Badge>
-          </div>
-          <span className="text-lg">{typeInfo.icon}</span>
+        <div className="flex items-center gap-1.5 pt-3 border-t border-border">
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${typeBadge[interview.type] || 'bg-muted text-muted-foreground'}`}>
+            {interview.type.charAt(0) + interview.type.slice(1).toLowerCase().replace('_', ' ')}
+          </span>
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusBadge[interview.status] || 'bg-muted text-muted-foreground'}`}>
+            {interview.status.charAt(0) + interview.status.slice(1).toLowerCase().replace('_', ' ')}
+          </span>
         </div>
-      </Card>
+      </div>
     </Link>
   );
 }
