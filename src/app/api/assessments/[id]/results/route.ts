@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
 
 export async function GET(
   request: NextRequest,
@@ -13,61 +9,66 @@ export async function GET(
   try {
     const assessmentId = params.id;
 
-    // Get assessment
-    const { data: assessment, error: assessmentError } = await supabase
-      .from('assessments')
-      .select('*')
-      .eq('id', assessmentId)
-      .single();
+    // Get assessment sessions for this assessment config
+    const sessions = await prisma.assessmentSession.findMany({
+      where: { id: assessmentId },
+      include: {
+        candidate: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        responses: true,
+      },
+      orderBy: { completedAt: 'desc' },
+    });
 
-    if (assessmentError || !assessment) {
-      return NextResponse.json(
-        { error: 'Assessment not found' },
-        { status: 404 }
-      );
+    if (!sessions || sessions.length === 0) {
+      // Try finding by treating id as a single session
+      const session = await prisma.assessmentSession.findUnique({
+        where: { id: assessmentId },
+        include: {
+          candidate: {
+            select: { id: true, name: true, email: true },
+          },
+          responses: true,
+        },
+      });
+
+      if (!session) {
+        return NextResponse.json(
+          { error: 'Assessment not found' },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        id: session.id,
+        results: [{
+          id: session.id,
+          candidate_name: session.candidate?.name || 'Unknown',
+          candidate_email: session.candidate?.email || 'unknown@example.com',
+          submitted_at: session.completedAt?.toISOString() || new Date().toISOString(),
+          score: session.overallScore || 0,
+          status: session.status,
+          discResults: session.discResults,
+        }],
+      });
     }
 
-    // Get all attempts for this assessment
-    const { data: attempts, error: attemptsError } = await supabase
-      .from('assessment_attempts')
-      .select(
-        `
-        id,
-        candidate_id,
-        status,
-        score,
-        disc_profile,
-        completed_at,
-        candidates (
-          id,
-          name,
-          email
-        )
-      `
-      )
-      .eq('assessment_id', assessmentId)
-      .order('completed_at', { ascending: false });
-
-    if (attemptsError) throw attemptsError;
-
-    // Format results
-    const results = attempts.map((attempt: any) => ({
-      id: attempt.id,
-      candidate_name: attempt.candidates?.name || 'Unknown',
-      candidate_email: attempt.candidates?.email || 'unknown@example.com',
-      submitted_at: attempt.completed_at || new Date().toISOString(),
-      score: attempt.score || 0,
-      status: attempt.status,
-      disc_profile: attempt.disc_profile,
+    const results = sessions.map((s) => ({
+      id: s.id,
+      candidate_name: s.candidate?.name || 'Unknown',
+      candidate_email: s.candidate?.email || 'unknown@example.com',
+      submitted_at: s.completedAt?.toISOString() || new Date().toISOString(),
+      score: s.overallScore || 0,
+      status: s.status,
+      discResults: s.discResults,
     }));
 
-    return NextResponse.json({
-      id: assessment.id,
-      title: assessment.title,
-      type: assessment.type,
-      question_count: assessment.question_count,
-      results,
-    });
+    return NextResponse.json({ id: assessmentId, results });
   } catch (error) {
     console.error('Error fetching results:', error);
     return NextResponse.json(

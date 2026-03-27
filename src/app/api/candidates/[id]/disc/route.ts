@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { generateCompleteDISCProfile } from '@/lib/ai/disc-analyzer';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
@@ -13,29 +7,30 @@ export async function GET(
 ) {
   try {
     const candidateId = params.id;
-    const { searchParams } = new URL(request.url);
-    const assessmentId = searchParams.get('assessment_id');
 
-    // Get candidate's assessment attempt
-    let query = supabase
-      .from('assessment_attempts')
-      .select('id, disc_profile, assessment_id')
-      .eq('candidate_id', candidateId);
+    // Find the candidate's most recent completed assessment session with DISC results
+    const session = await prisma.assessmentSession.findFirst({
+      where: {
+        candidateId: candidateId,
+        status: 'COMPLETED',
+        discResults: { not: null },
+      },
+      orderBy: { completedAt: 'desc' },
+      select: {
+        id: true,
+        discResults: true,
+        completedAt: true,
+      },
+    });
 
-    if (assessmentId) {
-      query = query.eq('assessment_id', assessmentId);
-    }
-
-    const { data: attempt, error: attemptError } = await query.single();
-
-    if (attemptError || !attempt) {
+    if (!session || !session.discResults) {
       return NextResponse.json(
         { error: 'No DISC profile found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(attempt.disc_profile || {});
+    return NextResponse.json(session.discResults);
   } catch (error) {
     console.error('Error fetching DISC profile:', error);
     return NextResponse.json(
@@ -51,63 +46,42 @@ export async function POST(
 ) {
   try {
     const candidateId = params.id;
-    const { assessment_id } = await request.json();
+    const { discResults } = await request.json();
 
-    // Get assessment answers
-    const { data: attempt, error: attemptError } = await supabase
-      .from('assessment_attempts')
-      .select('id, assessment_id')
-      .eq('candidate_id', candidateId)
-      .eq('assessment_id', assessment_id)
-      .single();
-
-    if (attemptError || !attempt) {
+    if (!discResults) {
       return NextResponse.json(
-        { error: 'Assessment attempt not found' },
+        { error: 'DISC results data is required' },
+        { status: 400 }
+      );
+    }
+
+    // Find the candidate's most recent assessment session
+    const session = await prisma.assessmentSession.findFirst({
+      where: {
+        candidateId: candidateId,
+        status: 'COMPLETED',
+      },
+      orderBy: { completedAt: 'desc' },
+    });
+
+    if (!session) {
+      return NextResponse.json(
+        { error: 'No completed assessment found for candidate' },
         { status: 404 }
       );
     }
 
-    // Get answers
-    const { data: answers, error: answersError } = await supabase
-      .from('assessment_answers')
-      .select(
-        `
-        answer,
-        assessment_questions (
-          text,
-          type
-        )
-      `
-      )
-      .eq('attempt_id', attempt.id);
+    // Update the session with DISC results
+    const updated = await prisma.assessmentSession.update({
+      where: { id: session.id },
+      data: { discResults: discResults },
+    });
 
-    if (answersError) throw answersError;
-
-    // Prepare data for DISC analysis
-    const answerData = answers.map((a: any) => ({
-      question_id: a.assessment_questions.id,
-      question_text: a.assessment_questions.text,
-      question_type: a.assessment_questions.type,
-      answer: a.answer,
-    }));
-
-    // Generate DISC profile
-    const discProfile = await generateCompleteDISCProfile(answerData);
-
-    // Save DISC profile
-    const { error: updateError } = await supabase
-      .from('assessment_attempts')
-      .update({ disc_profile: discProfile })
-      .eq('id', attempt.id);
-
-    if (updateError) throw updateError;
-
-    return NextResponse.json(discProfile, { status: 201 });
+    return NextResponse.json(updated.discResults, { status: 201 });
   } catch (error) {
-    console.error('Error generating DISC profile:', error);
+    console.error('Error saving DISC profile:', error);
     return NextResponse.json(
-      { error: 'Failed to generate DISC profile' },
+      { error: 'Failed to save DISC profile' },
       { status: 500 }
     );
   }
