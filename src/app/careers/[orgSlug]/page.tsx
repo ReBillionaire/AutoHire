@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Briefcase, MapPin, Clock, Search, Building2, Loader2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';ck
+import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
